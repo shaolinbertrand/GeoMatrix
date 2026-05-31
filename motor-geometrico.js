@@ -84,19 +84,22 @@ class MotorGeometrico extends HTMLElement {
         });
     }
 
-    // MATEMÁTICA DA ESCALA NORMALIZADA INTERNA (CORRIGIDA PARA 100% DE PROPORÇÃO)
+    // MATEMÁTICA DA ESCALA NORMALIZADA INTERNA (CORRIGIDA PARA 100% DE PROPORÇÃO NO WIX)
     getVertices() {
         // Encontra a maior dimensão digitada para servir de base de proporção
         const maxValor = Math.max(this.boxWidth, this.boxHeight, this.boxDepth) || 1;
         
-        // Define dinamicamente o tamanho base de acordo com a menor dimensão do Canvas
-        // Isso garante que o sólido se adapte perfeitamente a qualquer tamanho de tela no Wix
+        // --- DETECÇÃO DE TAMANHO DO CANVAS ---
         const width = this.canvas.width || 600;
         const height = this.canvas.height || 500;
-        const menorDimensaoTela = Math.min(width, height);
         
-        // Fator de escala adaptativo (ocupa cerca de 35% do raio da tela para não cortar nas rotações)
-        const tamanhoBaseVisual = menorDimensaoTela * 0.35;
+        // --- NOVO CÁLCULO AGRESSIVO DE ESCALA ---
+        // Queremos que o sólido ocupe cerca de 80% da área mais visível do Canvas.
+        // O valor 0.8 garante que ele fique grande, mas não corte nas bordas ao girar.
+        const menorDimensaoCanvas = Math.min(width, height);
+        
+        // Fator de escala adaptativo: 80% do raio da tela para preencher bem.
+        const tamanhoBaseVisual = menorDimensaoCanvas * 0.4; // Ajuste para 40% do raio para maior preenchimento sem corte excessivo
 
         // Normaliza os tamanhos para que fiquem sempre visíveis e proporcionais
         const w = (this.boxWidth / maxValor) * tamanhoBaseVisual;
@@ -114,11 +117,10 @@ class MotorGeometrico extends HTMLElement {
             {x: -w, y:  h, z:  d}  // 7
         ];
     }
-
     project(point, width, height) {
         // Ajustamos a distância de perspectiva para estabilizar o tamanho do objeto na tela
-        const distance = 300;
-        const f = 300; 
+        const distance = 400;
+        const f = 400; 
 
         // Rotações tridimensionais
         let y1 = point.y * Math.cos(this.angleX) - point.z * Math.sin(this.angleX);
@@ -129,10 +131,10 @@ class MotorGeometrico extends HTMLElement {
         
         const scale = f / (f + z2 + distance);
         
-        // Removido o multiplicador fixo antigo (* 2) para alinhar com o novo cálculo responsivo
+        // Retorno do multiplicador fixo antigo (* 2) para estabilidade no cálculo de proporção
         return {
-            x: x2 * scale + width / 2,
-            y: y1 * scale + height / 2
+            x: x2 * scale * 2 + width / 2,
+            y: y1 * scale * 2 + height / 2
         };
     }
 
