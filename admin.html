@@ -306,6 +306,10 @@
             box.style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        function fazerLogout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
     </script>
 </body>
 </html>
