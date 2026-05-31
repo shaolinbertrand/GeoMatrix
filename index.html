@@ -186,7 +186,8 @@
                 boxFeedback.innerHTML = "✅ Resposta correta! Excelente raciocínio geométrico!";
                 boxFeedback.style.display = 'block';
 
-                // Opcional: Se for persistir o progresso do aluno via API aqui, a lógica do PUT entraria abaixo.
+                // Chamada da função de gravação remota assíncrona
+                await salvarProgressoNoBanco();
                 
                 setTimeout(() => {
                     carregarDesafio();
@@ -195,6 +196,56 @@
                 boxFeedback.className = "feedback-box feedback-error";
                 boxFeedback.innerHTML = "❌ Resposta incorreta. Dica: Use o simulador 3D ao lado colocando as dimensões do enunciado para visualizar o sólido e conferir seus cálculos!";
                 boxFeedback.style.display = 'block';
+            }
+        }
+        // FUNÇÃO DE PERSISTÊNCIA REAL RECONECTADA AO GITHUB API
+        async function salvarProgressoNoBanco() {
+            if (!dadosUsuarios || !alunoId) return;
+
+            const turma = dadosUsuarios.turmas.find(t => t.id === alunoTurmaId);
+            const alunoObj = turma ? turma.alunos.find(a => a.id === alunoId) : null;
+
+            if (alunoObj) {
+                alunoObj.pontuacao = pontuacao;
+                alunoObj.desafios_concluidos = desafioAtualIndex;
+
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/usuarios.json`;
+                
+                // Codificação segura para Base64 sem corromper acentos do arquivo original
+                const jsonStr = JSON.stringify(dadosUsuarios, null, 2);
+                const base64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+                }));
+
+                const bodyRequest = {
+                    message: `Sincronização: Aluno ${alunoNome} concluiu o desafio ${desafioAtualIndex}`,
+                    content: base64,
+                    sha: shaUsuarios
+                };
+
+                try {
+                    // O script busca o Token injetado localmente para autorizar o commit automatizado
+                    const tokenProfessor = localStorage.getItem('gh_p_token');
+                    
+                    const headersConfig = { 'Content-Type': 'application/json' };
+                    if (tokenProfessor) {
+                        headersConfig['Authorization'] = `token ${tokenProfessor}`;
+                    }
+
+                    const res = await fetch(url, {
+                        method: 'PUT',
+                        headers: headersConfig,
+                        body: JSON.stringify(bodyRequest)
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        shaUsuarios = data.content.sha; // Renova a assinatura para o próximo acerto
+                        console.log("Progresso sincronizado com sucesso no GitHub remoto.");
+                    }
+                } catch (err) {
+                    console.error("Falha na sincronização remota.");
+                }
             }
         }
 
