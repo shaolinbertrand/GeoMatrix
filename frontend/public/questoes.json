@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "enunciado": "<h2>Desafio 1: O Reservatório de Água (Geometria Espacial)</h2><p>Um reservatório de água no formato de um bloco retangular possui as seguintes dimensões no simulador: <strong>Largura = 160 u</strong>, <strong>Altura = 100 u</strong> e <strong>Profundidade = 80 u</strong>.</p><p>Utilize o simulador 3D ao lado para visualizar o sólido. Sabendo que o volume $V$ de um prisma reto retangular é dado por $V = \text{Largura} \times \text{Altura} \times \text{Profundidade}$, qual é o <strong>Volume Total</strong> deste reservatório em unidades cúbicas ($u^3$)?</p>",
+    "resposta_correta": 1280000
+  },
+  {
+    "id": 2,
+    "enunciado": "<h2>Desafio 2: Modificando a Altura (Proporcionalidade)</h2><p>Imagine que o professor Jean Bertrand solicitou uma alteração no reservatório do desafio anterior. A largura e a profundidade continuam as mesmas (160 u e 80 u), mas a <strong>Altura foi reduzida exatamente pela metade (50 u)</strong>.</p><p>Altere os valores nos seletores do simulador para refletir a nova forma. Qual passa a ser o <strong>novo Volume Total</strong> deste bloco em unidades cúbicas?</p>",
+    "resposta_correta": 640000
+  },
+  {
+    "id": 3,
+    "enunciado": "<h2>Desafio 3: O Cubo Perfeito (Raiz Cúbica e Potenciação)</h2><p>Um aluno do 9º ano está modelando uma caixa organizadora que possui o formato de um <strong>Cubo Perfeito</strong>. Em um cubo, todas as arestas são iguais, ou seja, $\text{Largura} = \text{Altura} = \text{Profundidade}$.</p><p>Ajuste o simulador para que todas as três dimensões fiquem com o valor de <strong>60 u</strong>. Calcule o volume gerado ($60^3$). Qual é o volume dessa caixa organizadora?</p>",
+    "resposta_correta": 216000
+  },
+  {
+    "id": 4,
+    "enunciado": "<h2>Desafio 4: Descobrindo a Dimensão Escondida (Álgebra e Equações)</h2><p>Um prisma retangular possui um volume total de <strong>300.000 u³</strong>. O operador do sistema informou que a <strong>Largura é 100 u</strong> e a <strong>Altura é 50 u</strong>, mas a Profundidade é desconhecida ($x$).</p><p>Monte a equação: $100 \times 50 \times x = 300.000$. Descubra o valor de $x$ e, para conferir seu cálculo, digite esse valor no campo <strong>Profundidade</strong> do simulador para ver se o volume total bate com 300.000. Qual é o valor de $x$?</p>",
+    "resposta_correta": 60
+  },
+  {
+    "id": 5,
+    "enunciado": "<h2>Desafio 5: O Dobro do Volume (Grandezas Variáveis)</h2><p>Partindo de um bloco com <strong>Largura = 100 u</strong>, <strong>Altura = 100 u</strong> e <strong>Profundidade = 100 u</strong> (Volume = 1.000.000 u³), o que acontece se <strong>dobrarmos apenas a Largura (200 u)</strong> mantendo o restante fixo?</p><p>Faça essa alteração no simulador 3D para analisar o comportamento do sólido geométrico. Qual é o valor do volume final obtido?</p>",
+    "resposta_correta": 2000000
+  }
+]

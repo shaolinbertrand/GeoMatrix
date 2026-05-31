@@ -1,0 +1,103 @@
+:root {
+  --primary-color: #1A2B4C;
+  --bg-color: #F7FAFC;
+  --panel-bg: #FFFFFF;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: #2D3748;
+}
+
+header {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 1rem 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.main-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+@media (max-width: 900px) {
+  .main-container { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--panel-bg);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  border: 1px solid #E2E8F0;
+}
+
+/* Garante que o contêiner do motor gráfico não fique colapsado/escuro */
+.motor-container {
+  width: 100%;
+  height: 400px;
+  background-color: #EEEEEE; /* Fundo cinza claro caso o motor demore a iniciar */
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+/* Estilização padrão para o componente nativo */
+custom-motor-geometrico, motor-geometrico {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.control-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.input-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-block label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+  color: #4A5568;
+}
+
+.input-block input, .input-block select {
+  padding: 0.6rem;
+  border: 2px solid #CBD5E0;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.volume-display {
+  margin-top: 1rem;
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+  text-align: center;
+}
+
+.score-badge {
+  background-color: #EBF8FF;
+  border: 1px solid #BEE3F8;
+  color: #2B6CB0;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: bold;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
