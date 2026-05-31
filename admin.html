@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoMatrix - Painel do Professor</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .form-row { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem; }
+        textarea { width: 100%; height: 100px; padding: 0.7rem; border: 2px solid #CBD5E0; border-radius: 6px; font-size: 1rem; resize: vertical; }
+        .btn-success { background-color: #2ECC71 !important; }
+        .btn-danger { background-color: #E74C3C !important; padding: 0.4rem 0.8rem !important; font-size: 0.85rem !important; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
+        th { background-color: #1A2B4C; color: white; }
+        .token-box { background-color: #FFF5F5; border: 1px solid #FEB2B2; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>GeoMatrix - Painel Administrativo</h1>
+        <p>Gerenciamento do Banco de Questões (CRUD via GitHub API)</p>
+    </header>
+
+    <div class="admin-container">
+        <div class="token-box">
+            <label style="font-weight: bold; color: #9B2C2C;">Chave de Acesso GitHub (PAT):</label>
+            <input type="password" id="inputToken" placeholder="Cole seu ghp_token aqui para poder salvar..." style="width:100%; padding:0.6rem; margin-top:0.4rem; border:1px solid #CBD5E0; border-radius:6px;">
+            <p style="font-size:0.8rem; color:#718096; margin-top:0.3rem;">* Seu token fica apenas na memória do seu navegador atual, garantindo total segurança.</p>
+        </div>
+
+        <div class="panel">
+            <h2>Cadastrar Nova Questão</h2>
+            <div class="form-row">
+                <div class="input-block">
+                    <label>Enunciado da Questão (Aceita HTML/Rich Text):</label>
+                    <textarea id="formEnunciado" placeholder="Ex: <p><strong>Desafio:</strong> Calcule o volume...</p>"></textarea>
+                </div>
+            </div>
+            <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:1rem;">
+                <div class="input-block">
+                    <label>Resposta Correta (Apenas Números Inteiros):</label>
+                    <input type="number" id="formResposta" placeholder="Ex: 120">
+                </div>
+                <div class="input-block" style="justify-content: flex-end;">
+                    <button id="btnSalvar" class="btn-success" style="width:100%; height:42px; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Salvar Questão</button>
+                </div>
+            </div>
+            <div id="statusMsg" class="feedback-box" style="margin-top:1rem;"></div>
+        </div>
+
+        <div class="panel" style="margin-top: 2rem;">
+            <h2>Questões Atuais no Banco</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Enunciado</th>
+                            <th style="width: 120px;">Gabarito</th>
+                            <th style="width: 100px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaCorpo">
+                        <tr><td colspan="3">Carregando banco de dados...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const owner = "shaolinbertrand";
+        const repo = "GeoMatrix";
+        const path = "questoes.json";
+        
+        let listaQuestoes = [];
+        let fileSha = ""; // Necessário para a API do GitHub autorizar atualizações
+
+        document.addEventListener('DOMContentLoaded', buscarBancoGitHub);
+        document.getElementById('btnSalvar').addEventListener('click', adicionarQuestao);
+
+        // READ: Busca as questões existentes na API do GitHub
+        async function buscarBancoGitHub() {
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+            try {
+                const res = await fetch(url);
+                if(!res.ok) throw new Error("Erro ao ler banco remoto");
+                const data = await res.json();
+                
+                fileSha = data.sha; // Guarda a assinatura do arquivo atual
+                listaQuestoes = JSON.parse(atob(data.content)); // Decodifica Base64 vindo do GitHub
+                
+                renderizarTabela();
+            } catch (err) {
+                mostrarMsg("Erro ao carregar dados do GitHub remoto.", "error");
+            }
+        }
+
+        function renderizarTabela() {
+            const tbody = document.getElementById('tabelaCorpo');
+            tbody.innerHTML = "";
+            
+            if(listaQuestoes.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='3'>Nenhuma questão cadastrada.</td></tr>";
+                return;
+            }
+
+            listaQuestoes.forEach((q, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${q.enunciado}</td>
+                    <td><strong>${q.resposta_correta}</strong></td>
+                    <td><button class="answer-block button btn-danger" onclick="deletarQuestao(${index})">Excluir</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // CREATE: Adiciona um novo item ao array e envia via API
+        async function adicionarQuestao() {
+            const token = document.getElementById('inputToken').value;
+            const enunciado = document.getElementById('formEnunciado').value;
+            const resposta = document.getElementById('formResposta').value;
+
+            if(!token) return mostrarMsg("❌ Você precisa inserir o Token do GitHub para salvar!", "error");
+            if(!enunciado || !resposta) return mostrarMsg("❌ Preencha todos os campos da questão!", "error");
+
+            const novaQ = { enunciado: enunciado, resposta_correta: Number(resposta) };
+            listaQuestoes.push(novaQ); // Adiciona na lista local
+
+            await persistirNoGitHub(token, "Professor adicionou nova questão");
+            document.getElementById('formEnunciado').value = "";
+            document.getElementById('formResposta').value = "";
+        }
+
+        // DELETE: Remove a linha selecionada e atualiza o arquivo remoto
+        async function deletarQuestao(index) {
+            const token = document.getElementById('inputToken').value;
+            if(!token) return mostrarMsg("❌ Insira o seu Token do GitHub no topo para poder excluir!", "error");
+
+            if(confirm("Tem certeza que deseja excluir esta questão permanentemente?")) {
+                listaQuestoes.splice(index, 1); // Remove do array local
+                await persistirNoGitHub(token, "Professor removeu uma questão");
+            }
+        }
+
+        // EXECUTA O COMMIT REAL NA API DO GITHUB (PUT)
+        async function persistirNoGitHub(token, mensagemCommit) {
+            mostrarMsg("Enviando alterações para o GitHub...", "success");
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+            
+            // Converte o JSON atualizado em Base64 (exigência da API do GitHub)
+            const novoConteudoBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(listaQuestoes, null, 2))));
+
+            const bodyRequest = {
+                message: mensagemCommit,
+                content: novoConteudoBase64,
+                sha: fileSha // Passa o SHA antigo para provar sincronia
+            };
+
+            try {
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bodyRequest)
+                });
+
+                if(res.ok) {
+                    const data = await res.json();
+                    fileSha = data.content.sha; // Atualiza o SHA com a nova versão
+                    mostrarMsg("🎉 Banco de dados atualizado com sucesso no GitHub!", "success");
+                    renderizarTabela();
+                } else {
+                    throw new Error("Falha no envio");
+                }
+            } catch (err) {
+                mostrarMsg("❌ Erro ao salvar. Verifique se o seu Token está correto e ativo.", "error");
+                await buscarBancoGitHub(); // Desfaz alterações locais resincronizando
+            }
+        }
+
+        function mostrarMsg(texto, tipo) {
+            const box = document.getElementById('statusMsg');
+            box.innerText = texto;
+            box.className = `feedback-box ${tipo === 'success' ? 'feedback-success' : 'feedback-error'}`;
+            box.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
