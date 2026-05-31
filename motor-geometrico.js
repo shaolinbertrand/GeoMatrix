@@ -12,10 +12,10 @@ class MotorGeometrico extends HTMLElement {
         this.isDragging = false;
         this.previousMousePosition = { x: 0, y: 0 };
 
-        // Valores de entrada digitados pelo usuário
-        this.boxWidth = 160;
-        this.boxHeight = 100;
-        this.boxDepth = 80;
+        // Valores de entrada digitados pelo usuário (agora interpretados em metros)
+        this.boxWidth = 4;
+        this.boxHeight = 2;
+        this.boxDepth = 3;
     }
 
     static get observedAttributes() {
@@ -161,6 +161,23 @@ class MotorGeometrico extends HTMLElement {
             this.ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
             this.ctx.fill();
         });
+
+        // --- ADIÇÃO: EXIBIÇÃO DE MEDIDAS E RESULTADO EM METROS ---
+        const volume = this.boxWidth * this.boxHeight * this.boxDepth;
+
+        this.ctx.fillStyle = '#1A2B4C';
+        this.ctx.font = 'bold 16px sans-serif';
+        this.ctx.textBaseline = 'top';
+
+        // Desenha as dimensões atuais
+        this.ctx.fillText(`Largura: ${this.boxWidth.toFixed(2)} m`, 20, 20);
+        this.ctx.fillText(`Altura: ${this.boxHeight.toFixed(2)} m`, 20, 45);
+        this.ctx.fillText(`Profundidade: ${this.boxDepth.toFixed(2)} m`, 20, 70);
+
+        // Desenha o resultado do Volume Total em Destaque
+        this.ctx.fillStyle = '#2E7D32'; // Verde para destacar o resultado
+        this.ctx.font = 'bold 18px sans-serif';
+        this.ctx.fillText(`Volume Total: ${volume.toFixed(2)} m³`, 20, 105);
     }
 
     tick() {
