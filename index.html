@@ -65,6 +65,9 @@
     </div>
 
     <script>
+        if (!localStorage.getItem('session_id') || localStorage.getItem('session_role') !== 'aluno') {
+            window.location.href = 'login.html';
+        }
         // CONFIGURAÇÕES DO REPOSITÓRIO
         const owner = "shaolinbertrand";
         const repo = "GeoMatrix";
