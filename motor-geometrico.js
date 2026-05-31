@@ -45,13 +45,43 @@ class MotorGeometrico extends HTMLElement {
             this.id = 'custom-motor-geometrico';
         }
 
-        setTimeout(() => {
-            this.resizeCanvas();
-            this.initEventListeners();
-            this.tick();
-        }, 100);
+        // --- CORREÇÃO ROBUSTA PARA O WIX ---
+        // Usa ResizeObserver no contêiner pai para detectar o tamanho real
+        const parent = this.parentElement || this;
+        this.resizeObserver = new ResizeObserver((entries) => {
+            // Quando o tamanho do contêiner muda, ajusta o Canvas e re-renderiza
+            this.forceResizeAndRender();
+        });
+        this.resizeObserver.observe(parent);
 
-        window.addEventListener('resize', () => this.resizeCanvas());
+        // Renderização inicial agressiva
+        this.forceResizeAndRender();
+
+        this.initEventListeners();
+        this.tick();
+    }
+
+    disconnectedCallback() {
+        // Limpa o observador para evitar vazamentos de memória
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+    }
+
+    // Método para forçar o redimensionamento e a renderização correta
+    forceResizeAndRender() {
+        const parent = this.parentElement || this;
+        const width = parent.offsetWidth || 600; // Valores padrão maiores
+        const height = parent.offsetHeight || 500;
+        
+        // Se o tamanho for zero (comum em carregamentos iniciais do Wix)
+        // ainda definimos o Canvas, mas o getVertices saberá lidar com isso
+        if (this.canvas.width !== width || this.canvas.height !== height) {
+            this.canvas.width = width;
+            this.canvas.height = height;
+        }
+        
+        this.render();
     }
 
     resizeCanvas() {
