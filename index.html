@@ -1,78 +1,4 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoMatrix - Espaço Geometria</title>
-    
-    <link rel="stylesheet" href="style.css">
-    
-    <script src="motor-geometrico.js" defer></script>
-</head>
-<body>
-
-    <header>
-        <h1>GeoMatrix</h1>
-        <p>Ambiente Virtual de Aprendizagem de Geometria Espacial (BNCC)</p>
-    </header>
-
-    <div class="main-container">
-        
-        <div class="panel">
-            <div class="motor-container">
-                <motor-geometrico id="custom-motor-geometrico"></motor-geometrico>
-            </div>
-            
-            <div class="control-group">
-                <div class="input-block">
-                    <label for="inputLargura">Largura</label>
-                    <input type="number" id="inputLargura" value="160">
-                </div>
-                <div class="input-block">
-                    <label for="inputAltura">Altura</label>
-                    <input type="number" id="inputAltura" value="100">
-                </div>
-                <div class="input-block">
-                    <label for="inputProfundidade">Profundidade</label>
-                    <input type="number" id="inputProfundidade" value="80">
-                </div>
-            </div>
-
-            <div id="textVolume" class="volume-display">Volume Total: 1.280.000 u³.</div>
-        </div>
-
-        <div class="panel">
-            <div id="textPontuacao" class="score-badge">Pontos: 0</div>
-            
-            <div id="textEnunciado" class="enunciado-box">Carregando os desafios geométricos...</div>
-            
-            <div class="answer-block" id="interactive-controls">
-                <input type="number" id="inputRespostaAluno" placeholder="Digite sua resposta aqui...">
-                <button id="btnVerificar">Verificar Resposta</button>
-            </div>
-
-            <div id="boxFeedback" class="feedback-box"></div>
-        </div>
-
-    </div>
-
-    <script>
-        // BANCO DE QUESTÕES OFICIAL (MIGRADO DO CMS DO WIX)
-        const desafios = [
-            {
-                enunciado: "<p><strong>Desafio 1:</strong> Um caminhão de entregas possui uma caçamba baú para transporte de cargas em formato de bloco retangular. As dimensões internas dessa caçamba são 3 metros de largura, 2 metros de altura e 5 metros de profundidade. Qual é o volume total disponível, em metros cúbicos, que esse caminhão pode transportar?</p>",
-                resposta_correta: 30
-            },
-            {
-                enunciado: "<p><strong>Desafio 2:</strong> Uma escola decidiu construir uma nova cisterna subterrânea em formato de paralelepípedo retângulo para armazenar água da chuva. A estrutura foi projetada com 4 metros de largura, 2 metros de altura e 3 metros de profundidade. Qual será a capacidade volumétrica total dessa cisterna em metros cúbicos?</p>",
-                resposta_correta: 24
-            },
-            {
-                enunciado: "<p><strong>Desafio 3:</strong> Um pequeno produtor armazena caixas de sementes que possuem formato de bloco retangular. Cada caixa tem as seguintes dimensões: 20 cm de largura, 10 cm de altura e 30 cm de profundidade. Calcule, em centímetros cúbicos, o volume de espaço que apenas uma dessas caixas ocupa no depósito.</p>",
-                resposta_correta: 6000
-            }
-        ];
-
+let desafios = []; // O array inicia vazio e puxará do arquivo externo
         let desafioAtualIndex = 0;
         let pontuacao = 0;
 
@@ -90,10 +16,20 @@
         const boxFeedback = document.getElementById('boxFeedback');
         const interactiveControls = document.getElementById('interactive-controls');
 
-        // Inicialização do fluxo da aplicação
-        document.addEventListener('DOMContentLoaded', () => {
+        // Fluxo Inicial da Aplicação
+        document.addEventListener('DOMContentLoaded', async () => {
             atualizarDimensoes();
-            carregarDesafio();
+            
+            // CARREGA AS QUESTÕES DINAMICAMENTE DO ARQUIVO JSON EXTERNO
+            try {
+                // Adiciona um timestamp (?t=...) para quebrar o cache agressivo do navegador
+                const respostaJSON = await fetch(`questoes.json?t=${new Date().getTime()}`);
+                if (!respostaJSON.ok) throw new Error();
+                desafios = await respostaJSON.json();
+                carregarDesafio();
+            } catch (err) {
+                textEnunciado.innerHTML = "<h3>Erro ao carregar o banco de desafios geométricos.</h3>";
+            }
 
             // Configuração dos Eventos dos Inputs do Motor
             inputLargura.addEventListener('input', atualizarDimensoes);
@@ -121,10 +57,10 @@
 
         function carregarDesafio() {
             boxFeedback.style.display = 'none';
-            if (desafioAtualIndex < desafios.length) {
+            if (desafios.length > 0 && desafioAtualIndex < desafios.length) {
                 textEnunciado.innerHTML = desafios[desafioAtualIndex].enunciado;
                 inputRespostaAluno.value = "";
-            } else {
+            } else if (desafios.length > 0) {
                 textEnunciado.innerHTML = "<h2>🏆 Incrível, você completou todos os desafios do GeoMatrix!</h2>";
                 interactiveControls.style.display = 'none';
                 textPontuacao.style.backgroundColor = '#D4EFDF';
@@ -157,6 +93,3 @@
                 boxFeedback.style.display = 'block';
             }
         }
-    </script>
-</body>
-</html>
