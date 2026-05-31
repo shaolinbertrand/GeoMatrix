@@ -47,7 +47,16 @@
     {
       "id": "turma_3jkx0",
       "nome_turma": "8º Ano - TESTE",
-      "alunos": []
+      "alunos": [
+        {
+          "id": "aluno_02l4v",
+          "usuario": "ana.patricia",
+          "senha": "123",
+          "nome": "Ana Patricia",
+          "pontuacao": 0,
+          "desafios_concluidos": 0
+        }
+      ]
     }
   ]
 }
