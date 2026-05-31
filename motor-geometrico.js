@@ -103,13 +103,20 @@ class MotorGeometrico extends HTMLElement {
     }
 
     // CÂMERA ADAPTATIVA CALIBRADA PARA AS TRÊS DIMENSÕES
+    // CÂMERA ADAPTATIVA CALIBRADA PARA ALTURA E LARGURA (SEM CORTES)
     project(point, width, height) {
-        // Encontra o maior valor absoluto entre as três dimensões dinâmicas
+        // 1. Encontra o maior valor absoluto entre as três dimensões dinâmicas
         const maiorDimensao = Math.max(this.boxWidth, this.boxHeight, this.boxDepth);
         
-        // Afasta a câmara proporcionalmente ao tamanho do sólido
-        const distance = Math.max(400, maiorDimensao * 2.3);
-        const f = 400; 
+        // 2. CORREÇÃO: Aumentamos o multiplicador para 3.2 para dar mais margem vertical
+        // E adicionamos um fator extra se a altura for a maior dimensão
+        let multiplicador = 3.2;
+        if (this.boxHeight === maiorDimensao) {
+            multiplicador = 3.8; // Afasta ainda mais se o objeto for muito alto
+        }
+        
+        const distance = Math.max(450, maiorDimensao * multiplicador);
+        const f = 400; // Campo de visão (focal length)
 
         // Rotações tridimensionais nos eixos X e Y
         let y1 = point.y * Math.cos(this.angleX) - point.z * Math.sin(this.angleX);
