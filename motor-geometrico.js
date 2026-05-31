@@ -12,7 +12,7 @@ class MotorGeometrico extends HTMLElement {
         this.isDragging = false;
         this.previousMousePosition = { x: 0, y: 0 };
 
-        // Dimensões iniciais do Bloco Retangular
+        // Dimensões iniciais padrão (BNCC 8º Ano)
         this.boxWidth = 160;
         this.boxHeight = 100;
         this.boxDepth = 80;
@@ -84,10 +84,11 @@ class MotorGeometrico extends HTMLElement {
         });
     }
 
+    // CORREÇÃO AQUI: Vértices mapeados de forma limpa e sem erros de divisão
     getVertices() {
         const w = this.boxWidth / 2;
         const h = this.boxHeight / 2;
-        const d = this.boxDepth / d / 2;
+        const d = this.boxDepth / 2;
 
         return [
             {x: -w, y: -h, z: -d}, // 0
@@ -101,25 +102,22 @@ class MotorGeometrico extends HTMLElement {
         ];
     }
 
-    // PROJEÇÃO COM CÂMERA E ZOOM ADAPTATIVO DINÂMICO
+    // CÂMERA ADAPTATIVA CALIBRADA PARA AS TRÊS DIMENSÕES
     project(point, width, height) {
-        // 1. Encontra a maior dimensão atual do objeto para calcular o recuo da câmera
+        // Encontra o maior valor absoluto entre as três dimensões dinâmicas
         const maiorDimensao = Math.max(this.boxWidth, this.boxHeight, this.boxDepth);
         
-        // 2. Ajusta a distância de forma proporcional (quanto maior o objeto, mais longe a câmera fica)
-        // O valor base 400 aumenta dinamicamente conforme o objeto cresce além do padrão
-        const distance = Math.max(400, maiorDimensao * 2.2);
-        const f = 400; // Campo de visão (focal length)
+        // Afasta a câmara proporcionalmente ao tamanho do sólido
+        const distance = Math.max(400, maiorDimensao * 2.3);
+        const f = 400; 
 
-        // Rotação no eixo X
+        // Rotações tridimensionais nos eixos X e Y
         let y1 = point.y * Math.cos(this.angleX) - point.z * Math.sin(this.angleX);
         let z1 = point.y * Math.sin(this.angleX) + point.z * Math.cos(this.angleX);
 
-        // Rotação no eixo Y
         let x2 = point.x * Math.cos(this.angleY) + z1 * Math.sin(this.angleY);
         let z2 = -point.x * Math.sin(this.angleY) + z1 * Math.cos(this.angleY);
         
-        // Fator de escala adaptado à nova distância dinâmica
         const scale = f / (f + z2 + distance);
         
         return {
