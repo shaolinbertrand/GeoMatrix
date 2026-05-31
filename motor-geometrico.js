@@ -12,10 +12,30 @@ class MotorGeometrico extends HTMLElement {
         this.isDragging = false;
         this.previousMousePosition = { x: 0, y: 0 };
 
-        // Dimensões do Bloco Retangular (BNCC 8º Ano)
+        // Dimensões iniciais/padrão do Bloco Retangular
         this.boxWidth = 160;
         this.boxHeight = 100;
         this.boxDepth = 80;
+    }
+
+    // 1. DIZ AO COMPONENTE QUAIS OS ATRIBUTOS QUE DEVE MONITORIZAR
+    static get observedAttributes() {
+        return ['largura', 'altura', 'profundidade'];
+    }
+
+    // 2. ESCUTA AS MUDANÇAS VINDAS DO WIX E ATUALIZA O MOTOR
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue) return;
+
+        // Se o valor for válido, atualiza a dimensão correspondente no motor
+        if (newValue && !isNaN(newValue)) {
+            const valor = Number(newValue);
+            if (name === 'largura') this.boxWidth = valor;
+            if (name === 'altura') this.boxHeight = valor;
+            if (name === 'profundidade') this.boxDepth = valor;
+            
+            this.render(); // Força o redesenho instantâneo do sólido
+        }
     }
 
     connectedCallback() {
@@ -24,12 +44,10 @@ class MotorGeometrico extends HTMLElement {
         this.style.width = '100%';
         this.style.height = '100%';
         
-        // Garante que o elemento tenha um ID registrado no ciclo do Wix
         if (!this.id) {
             this.id = 'custom-motor-geometrico';
         }
 
-        // AGUARDA O WIX DEFINIR O TAMANHO DO ELEMENTO NA TELA
         setTimeout(() => {
             this.resizeCanvas();
             this.initEventListeners();
@@ -40,7 +58,6 @@ class MotorGeometrico extends HTMLElement {
     }
 
     resizeCanvas() {
-        // Se o offsetWidth for zero, força um tamanho padrão visível para o dashboard
         this.canvas.width = this.offsetWidth || 600;
         this.canvas.height = this.offsetHeight || 400;
         this.render();
@@ -108,14 +125,12 @@ class MotorGeometrico extends HTMLElement {
         const width = this.canvas.width;
         const height = this.canvas.height;
         
-        // Fundo branco limpo para destacar o sólido geométrico
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(0, 0, width, height);
 
         const vertices3D = this.getVertices();
         const points2D = vertices3D.map(v => this.project(v, width, height));
 
-        // Estilo das Linhas (Arestas)
         this.ctx.strokeStyle = '#1A2B4C';
         this.ctx.lineWidth = 3;
         this.ctx.lineJoin = 'round';
@@ -133,7 +148,6 @@ class MotorGeometrico extends HTMLElement {
             this.ctx.stroke();
         });
 
-        // Vértices em Destaque Vermelho (Excelente feedback visual pedagógico)
         this.ctx.fillStyle = '#FF4D4D';
         points2D.forEach(p => {
             this.ctx.beginPath();
