@@ -1,4 +1,63 @@
-let desafios = []; // O array inicia vazio e puxará do arquivo externo
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoMatrix - Espaço Geometria</title>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="motor-geometrico.js" defer></script>
+</head>
+<body>
+
+    <header>
+        <h1>GeoMatrix</h1>
+        <p>Ambiente Virtual de Aprendizagem de Geometria Espacial (BNCC)</p>
+    </header>
+
+    <div class="main-container">
+        
+        <div class="panel">
+            <div class="motor-container">
+                <motor-geometrico id="custom-motor-geometrico"></motor-geometrico>
+            </div>
+            
+            <div class="control-group">
+                <div class="input-block">
+                    <label for="inputLargura">Largura</label>
+                    <input type="number" id="inputLargura" value="160">
+                </div>
+                <div class="input-block">
+                    <label for="inputAltura">Altura</label>
+                    <input type="number" id="inputAltura" value="100">
+                </div>
+                <div class="input-block">
+                    <label for="inputProfundidade">Profundidade</label>
+                    <input type="number" id="inputProfundidade" value="80">
+                </div>
+            </div>
+
+            <div id="textVolume" class="volume-display">Volume Total: 1.280.000 u³.</div>
+        </div>
+
+        <div class="panel">
+            <div id="textPontuacao" class="score-badge">Pontos: 0</div>
+            
+            <div id="textEnunciado" class="enunciado-box">Carregando os desafios geométricos...</div>
+            
+            <div class="answer-block" id="interactive-controls">
+                <input type="number" id="inputRespostaAluno" placeholder="Digite sua resposta aqui...">
+                <button id="btnVerificar">Verificar Resposta</button>
+            </div>
+
+            <div id="boxFeedback" class="feedback-box"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let desafios = []; 
         let desafioAtualIndex = 0;
         let pontuacao = 0;
 
@@ -20,23 +79,22 @@ let desafios = []; // O array inicia vazio e puxará do arquivo externo
         document.addEventListener('DOMContentLoaded', async () => {
             atualizarDimensoes();
             
-            // CARREGA AS QUESTÕES DINAMICAMENTE DO ARQUIVO JSON EXTERNO
+            // Carrega as questões dinamicamente do arquivo JSON externo
             try {
-                // Adiciona um timestamp (?t=...) para quebrar o cache agressivo do navegador
                 const respostaJSON = await fetch(`questoes.json?t=${new Date().getTime()}`);
                 if (!respostaJSON.ok) throw new Error();
                 desafios = await respostaJSON.json();
                 carregarDesafio();
             } catch (err) {
-                textEnunciado.innerHTML = "<h3>Erro ao carregar o banco de desafios geométricos.</h3>";
+                textEnunciado.innerHTML = "<div class='feedback-box feedback-error' style='display:block;'>❌ Erro ao carregar o banco de desafios geométricos. Verifique o arquivo questoes.json.</div>";
             }
 
-            // Configuração dos Eventos dos Inputs do Motor
+            // Eventos dos Inputs do Motor
             inputLargura.addEventListener('input', atualizarDimensoes);
             inputAltura.addEventListener('input', atualizarDimensoes);
             inputProfundidade.addEventListener('input', atualizarDimensoes);
 
-            // Evento do Botão de Validação
+            // Evento de Validação
             btnVerificar.addEventListener('click', verificarResposta);
         });
 
@@ -93,3 +151,6 @@ let desafios = []; // O array inicia vazio e puxará do arquivo externo
                 boxFeedback.style.display = 'block';
             }
         }
+    </script>
+</body>
+</html>
