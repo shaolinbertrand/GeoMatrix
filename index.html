@@ -12,8 +12,16 @@
 <body>
 
     <header>
-        <h1>GeoMatrix</h1>
-        <p>Ambiente Virtual de Aprendizagem de Geometria Espacial (BNCC)</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; padding: 0 1rem;">
+            <div style="text-align: left;">
+                <h1>GeoMatrix</h1>
+                <p>Ambiente Virtual de Aprendizagem de Geometria Espacial (BNCC)</p>
+            </div>
+            <div style="text-align: right; font-size: 0.9rem;">
+                <span id="labelNomeAluno" style="font-weight: bold; display: block; margin-bottom: 0.2rem;">Carregando...</span>
+                <button onclick="fazerLogout()" style="background: #FF4D4D; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem;">Sair do Sistema</button>
+            </div>
+        </div>
     </header>
 
     <div class="main-container">
@@ -57,11 +65,24 @@
     </div>
 
     <script>
+        // CONFIGURAÇÕES DO REPOSITÓRIO
+        const owner = "shaolinbertrand";
+        const repo = "GeoMatrix";
+
         let desafios = []; 
+        let dadosUsuarios = null;
+        let shaUsuarios = "";
+
+        // Dados do Aluno Logado vindos da Sessão
+        const alunoId = localStorage.getItem('session_id');
+        const alunoNome = localStorage.getItem('session_name');
+        const alunoTurmaId = localStorage.getItem('session_turma');
+        const sessionRole = localStorage.getItem('session_role');
+
         let desafioAtualIndex = 0;
         let pontuacao = 0;
 
-        // Referências dos Elementos DOM
+        // Referências do DOM
         const inputLargura = document.getElementById('inputLargura');
         const inputAltura = document.getElementById('inputAltura');
         const inputProfundidade = document.getElementById('inputProfundidade');
@@ -74,83 +95,22 @@
         const textPontuacao = document.getElementById('textPontuacao');
         const boxFeedback = document.getElementById('boxFeedback');
         const interactiveControls = document.getElementById('interactive-controls');
+        const labelNomeAluno = document.getElementById('labelNomeAluno');
 
-        // Fluxo Inicial da Aplicação
+        // VALIDAÇÃO DE SEGURANÇA: Bloqueia utilizadores anónimos
+        if (!alunoId || sessionRole !== 'aluno') {
+            window.location.href = 'login.html';
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
+            labelNomeAluno.innerText = `👋 Olá, ${alunoNome}!`;
             atualizarDimensoes();
             
-            // Carrega as questões dinamicamente do arquivo JSON externo
+            // 1. CARREGA O PERFIL E PROGRESSO DO ALUNO DO BANCO REMOTO
             try {
-                const respostaJSON = await fetch(`questoes.json?t=${new Date().getTime()}`);
-                if (!respostaJSON.ok) throw new Error();
-                desafios = await respostaJSON.json();
-                carregarDesafio();
-            } catch (err) {
-                textEnunciado.innerHTML = "<div class='feedback-box feedback-error' style='display:block;'>❌ Erro ao carregar o banco de desafios geométricos. Verifique o arquivo questoes.json.</div>";
-            }
+                const resUser = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/usuarios.json?t=${new Date().getTime()}`);
+                const dataUser = await resUser.json();
+                shaUsuarios = dataUser.sha;
+                dadosUsuarios = JSON.parse(atob(dataUser.content));
 
-            // Eventos dos Inputs do Motor
-            inputLargura.addEventListener('input', atualizarDimensoes);
-            inputAltura.addEventListener('input', atualizarDimensoes);
-            inputProfundidade.addEventListener('input', atualizarDimensoes);
-
-            // Evento de Validação
-            btnVerificar.addEventListener('click', verificarResposta);
-        });
-
-        function atualizarDimensoes() {
-            const larg = inputLargura.value || "160";
-            const alt = inputAltura.value || "100";
-            const prof = inputProfundidade.value || "80";
-
-            const volume = Number(larg) * Number(alt) * Number(prof);
-            textVolume.innerText = `Volume Total: ${volume.toLocaleString()} u³.`;
-
-            if (motor) {
-                motor.setAttribute('largura', larg);
-                motor.setAttribute('altura', alt);
-                motor.setAttribute('profundidade', prof);
-            }
-        }
-
-        function carregarDesafio() {
-            boxFeedback.style.display = 'none';
-            if (desafios.length > 0 && desafioAtualIndex < desafios.length) {
-                textEnunciado.innerHTML = desafios[desafioAtualIndex].enunciado;
-                inputRespostaAluno.value = "";
-            } else if (desafios.length > 0) {
-                textEnunciado.innerHTML = "<h2>🏆 Incrível, você completou todos os desafios do GeoMatrix!</h2>";
-                interactiveControls.style.display = 'none';
-                textPontuacao.style.backgroundColor = '#D4EFDF';
-                textPontuacao.style.color = '#196F3D';
-                textPontuacao.style.borderColor = '#2ECC71';
-            }
-        }
-
-        function verificarResposta() {
-            if (desafios.length === 0) return;
-
-            const respostaDigitada = Number(inputRespostaAluno.value);
-            const respostaCerta = Number(desafios[desafioAtualIndex].resposta_correta);
-
-            if (respostaDigitada === respostaCerta) {
-                pontuacao += 10;
-                textPontuacao.innerText = `Pontos: ${pontuacao}`;
-                
-                boxFeedback.className = "feedback-box feedback-success";
-                boxFeedback.innerHTML = "✅ Resposta correta! Excelente raciocínio geométrico!";
-                boxFeedback.style.display = 'block';
-
-                setTimeout(() => {
-                    desafioAtualIndex++;
-                    carregarDesafio();
-                }, 3000);
-            } else {
-                boxFeedback.className = "feedback-box feedback-error";
-                boxFeedback.innerHTML = "❌ Resposta incorreta. Dica: Use o simulador 3D ao lado colocando as dimensões do enunciado para visualizar o sólido e conferir seus cálculos!";
-                boxFeedback.style.display = 'block';
-            }
-        }
-    </script>
-</body>
-</html>
+                // Localiza o aluno específico dentro da base de dados rem
