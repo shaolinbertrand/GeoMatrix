@@ -4,26 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GeoMatrix - Painel do Professor</title>
+    
     <link rel="stylesheet" href="css/admin.css">
-    <style>
-        .admin-container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
-        .nav-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid #E2E8F0; padding-bottom: 0.5rem; }
-        .nav-btn { padding: 0.6rem 1.2rem; border: none; background: #E2E8F0; font-weight: bold; cursor: pointer; border-radius: 6px; color: #4A5568; transition: all 0.2s; }
-        .nav-btn.active { background: #1A2B4C; color: white; }
-        .form-row { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem; }
-        textarea { width: 100%; height: 80px; padding: 0.7rem; border: 2px solid #CBD5E0; border-radius: 6px; font-size: 1rem; resize: vertical; }
-        .btn-success { background-color: #2ECC71 !important; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; height: 42px; }
-        .btn-danger { background-color: #E74C3C !important; padding: 0.4rem 0.8rem !important; font-size: 0.85rem !important; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
-        th { background-color: #1A2B4C; color: white; }
-        .token-box { background-color: #FFF5F5; border: 1px solid #FEB2B2; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
-        .grid-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
-        @media (max-width: 768px) { .grid-forms { grid-template-columns: 1fr; } }
-        .section-view { display: none; }
-        .section-view.active { display: block; }
-        .turma-card { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
-    </style>
 </head>
 <body>
     <header>
@@ -34,7 +16,7 @@
     <div class="admin-container">
         <div class="token-box">
             <label style="font-weight: bold; color: #9B2C2C;">Chave de Acesso GitHub (PAT):</label>
-            <input type="password" id="inputToken" placeholder="Cole seu ghp_token aqui para poder aplicar qualquer alteração...">
+            <input type="password" id="inputToken" placeholder="Cole seu ghp_token aqui para poder aplicar qualquer alteração..." style="width:100%; padding:0.6rem; margin-top:0.4rem; border:1px solid #CBD5E0; border-radius:6px;">
         </div>
 
         <div class="nav-tabs">
@@ -53,7 +35,7 @@
                         <textarea id="formEnunciado" placeholder="Ex: <p><strong>Desafio:</strong> Calcule o volume...</p>"></textarea>
                     </div>
                 </div>
-                <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:1rem;">
+                <div class="control-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top:1rem;">
                     <div class="input-block">
                         <label>Resposta Correta (Número Inteiro):</label>
                         <input type="number" id="formResposta" placeholder="Ex: 120">
@@ -75,7 +57,9 @@
                                 <th style="width: 100px;">Ações</th>
                             </tr>
                         </thead>
-                        <tbody id="tabelaQuestoesCorpo"></tbody>
+                        <tbody id="tabelaQuestoesCorpo">
+                            <tr><td colspan="3">Carregando dados do repositório remoto...</td></tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -102,7 +86,7 @@
                             <select id="selectTurmaAluno" style="padding: 0.6rem; border:2px solid #CBD5E0; border-radius:6px;"></select>
                         </div>
                     </div>
-                    <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:0.5rem;">
+                    <div class="control-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top:0.5rem;">
                         <div class="input-block">
                             <label>Nome Completo:</label>
                             <input type="text" id="formNomeAluno" placeholder="Ex: Jean Bertrand">
@@ -118,7 +102,7 @@
 
             <div class="panel" style="margin-top: 2rem;">
                 <h2>Relatório de Desempenho por Turma</h2>
-                <div id="containerRelatorios" style="margin-top:1.5rem;"></div>
+                <div id="containerRelatorios" style="margin-top:1.5rem;">Carregando tabelas de desempenho...</div>
             </div>
         </div>
 
@@ -145,30 +129,36 @@
             document.getElementById('btnTabTurmas').classList.toggle('active', aba === 'turmas');
         }
 
-        // ================= OPERAÇÕES DE QUESTÕES =================
+        // ================= OPERAÇÕES DE QUESTÕES (READ / CREATE / DELETE) =================
         async function buscarQuestoes() {
             try {
                 const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/questoes.json?t=${new Date().getTime()}`);
                 const data = await res.json();
                 shaQuestoes = data.sha;
-                listaQuestoes = JSON.parse(atob(data.content));
+                
+                // Decodificação Base64 robusta com suporte completo a caracteres UTF-8 (acentos e cedilhas)
+                const jsonText = decodeURIComponent(atob(data.content).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                listaQuestoes = JSON.parse(jsonText);
                 renderizarQuestoes();
             } catch (err) { console.error("Erro ao ler questões."); }
         }
 
         function renderizarQuestoes() {
             const tbody = document.getElementById('tabelaQuestoesCorpo');
-            tbody.innerHTML = listaQuestoes.length === 0 ? "<tr><td colspan='3'>Nenhuma questão.</td></tr>" : "";
+            tbody.innerHTML = listaQuestoes.length === 0 ? "<tr><td colspan='3'>Nenhuma questão localizada no banco remoto.</td></tr>" : "";
             listaQuestoes.forEach((q, idx) => {
                 tbody.innerHTML += `<tr><td>${q.enunciado}</td><td><strong>${q.resposta_correta}</strong></td><td><button class="btn-danger" onclick="deletarQuestao(${idx})">Excluir</button></td></tr>`;
             });
         }
 
         async function adicionarQuestao() {
-            const tok = document.getElementById('inputToken').value;
-            const enu = document.getElementById('formEnunciado').value;
-            const res = document.getElementById('formResposta').value;
-            if(!tok || !enu || !res) return mostrarMsg("Preencha o Token, Enunciado e Gabarito.", "error");
+            const tok = document.getElementById('inputToken').value.trim();
+            const enu = document.getElementById('formEnunciado').value.trim();
+            const res = document.getElementById('formResposta').value.trim();
+            if(!tok || !enu || !res) return mostrarMsg("Preencha o Token PAT, o Enunciado e o Gabarito.", "error");
 
             listaQuestoes.push({ enunciado: enu, resposta_correta: Number(res) });
             await enviarProGitHub('questoes.json', listaQuestoes, shaQuestoes, tok, "Adicionada nova questão", () => {
@@ -179,21 +169,26 @@
         }
 
         async function deletarQuestao(idx) {
-            const tok = document.getElementById('inputToken').value;
-            if(!tok) return mostrarMsg("Insira o seu Token para poder excluir.", "error");
-            if(confirm("Deseja apagar esta questão?")) {
+            const tok = document.getElementById('inputToken').value.trim();
+            if(!tok) return mostrarMsg("Insira o seu Token PAT para poder excluir.", "error");
+            if(confirm("Deseja apagar esta questão permanentemente?")) {
                 listaQuestoes.splice(idx, 1);
                 await enviarProGitHub('questoes.json', listaQuestoes, shaQuestoes, tok, "Removida uma questão", buscarQuestoes);
             }
         }
 
-        // ================= OPERAÇÕES DE TURMAS E ALUNOS =================
+        // ================= OPERAÇÕES DE TURMAS E ALUNOS (READ / CREATE / UPDATE) =================
         async function buscarUsuarios() {
             try {
                 const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/usuarios.json?t=${new Date().getTime()}`);
                 const data = await res.json();
                 shaUsuarios = data.sha;
-                dadosUsuarios = JSON.parse(atob(data.content));
+
+                const jsonText = decodeURIComponent(atob(data.content).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+
+                dadosUsuarios = JSON.parse(jsonText);
                 renderizarPainelTurmas();
             } catch (err) { console.error("Erro ao ler usuários."); }
         }
@@ -207,18 +202,16 @@
             container.innerHTML = dadosUsuarios.turmas.length === 0 ? "<p>Nenhuma turma criada até o momento.</p>" : "";
 
             dadosUsuarios.turmas.forEach(t => {
-                // Preenche o Select
                 select.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`;
                 
-                // Constrói as tabelas de relatórios visuais
-                let linhasAlunos = t.alunos.length === 0 ? "<tr><td colspan='3'>Nenhum aluno matriculado nesta turma.</td></tr>" : "";
+                let  linhasAlunos = t.alunos.length === 0 ? "<tr><td colspan='3'>Nenhum aluno matriculado nesta turma.</td></tr>" : "";
                 t.alunos.forEach(a => {
                     linhasAlunos += `<tr><td>${a.nome} (<em>@${a.usuario}</em>)</td><td><strong>${a.desafios_concluidos}</strong></td><td><span style="color:#B7791F; font-weight:bold;">${a.pontuacao} pts</span></td></tr>`;
                 });
 
                 container.innerHTML += `
                     <div class="turma-card">
-                        <h3>🏫 ${t.nome_turma} <span style="font-size:0.85rem; color:#718096;">(ID: ${t.id})</span></h3>
+                        <h3>🏫 ${t.nome_turma} <span style="font-size:0.85rem; color:#718096; font-weight:normal;">(ID: ${t.id})</span></h3>
                         <table>
                             <thead>
                                 <tr><th>Nome do Aluno</th><th>Desafios Feitos</th><th>Pontuação Total</th></tr>
@@ -231,8 +224,81 @@
         }
 
         async function criarTurma() {
-            const tok = document.getElementById('inputToken').value;
+            const tok = document.getElementById('inputToken').value.trim();
             const nome = document.getElementById('formNomeTurma').value.trim();
-            if(!tok || !nome) return mostrarMsg("Preencha o Token e o Nome da Turma.", "error");
+            if(!tok || !nome) return mostrarMsg("Preencha o Token PAT e o Nome da Turma.", "error");
 
-            const idTurma = "turma_" + Math.random().toString(3
+            const idTurma = "turma_" + Math.random().toString(36).substr(2, 5);
+            dadosUsuarios.turmas.push({ id: idTurma, nome_turma: nome, alunos: [] });
+
+            await enviarProGitHub('usuarios.json', dadosUsuarios, shaUsuarios, tok, `Criada a turma ${nome}`, () => {
+                document.getElementById('formNomeTurma').value = "";
+                buscarUsuarios();
+            });
+        }
+
+        async function vincularAluno() {
+            const tok = document.getElementById('inputToken').value.trim();
+            const idTurma = document.getElementById('selectTurmaAluno').value;
+            const nome = document.getElementById('formNomeAluno').value.trim();
+            const user = document.getElementById('formUserAluno').value.trim().toLowerCase();
+
+            if(!tok || !nome || !user) return mostrarMsg("Preencha o Token PAT e todos os dados do aluno.", "error");
+
+            const turma = dadosUsuarios.turmas.find(t => t.id === idTurma);
+            if(turma) {
+                const idAluno = "aluno_" + Math.random().toString(36).substr(2, 5);
+                turma.alunos.push({
+                    id: idAluno,
+                    usuario: user,
+                    senha: "123",
+                    nome: nome,
+                    pontuacao: 0,
+                    desafios_concluidos: 0
+                });
+
+                await enviarProGitHub('usuarios.json', dadosUsuarios, shaUsuarios, tok, `Matriculado aluno ${nome} na turma ${turma.nome_turma}`, () => {
+                    document.getElementById('formNomeAluno').value = "";
+                    document.getElementById('formUserAluno').value = "";
+                    buscarUsuarios();
+                });
+            }
+        }
+
+        // ================= CONEXÃO COM A API REST DO GITHUB =================
+        async function enviarProGitHub(arquivo, objetoDados, shaAntigo, token, msgCommit, callbackSucesso) {
+            mostrarMsg("Sincronizando dados com o repositório remoto do GitHub...", "success");
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${arquivo}`;
+            
+            // Codificação Base64 segura protegendo a acentuação contra corrupção no commit
+            const jsonStr = JSON.stringify(objetoDados, null, 2);
+            const base64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+                return String.fromCharCode('0x' + p1);
+            }));
+
+            try {
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msgCommit, content: base64, sha: shaAntigo })
+                });
+
+                if(res.ok) {
+                    mostrarMsg("🎉 Atualização salva e publicada com sucesso!", "success");
+                    callbackSucesso();
+                } else { throw new Error(); }
+            } catch (err) {
+                mostrarMsg("Erro ao salvar. Verifique se o seu Token PAT está correto e possui a permissão 'repo'.", "error");
+            }
+        }
+
+        function mostrarMsg(txt, tipo) {
+            const box = document.getElementById('statusMsg');
+            box.innerText = txt;
+            box.className = `feedback-box ${tipo === 'success' ? 'feedback-success' : 'feedback-error'}`;
+            box.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
