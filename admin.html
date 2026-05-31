@@ -6,189 +6,233 @@
     <title>GeoMatrix - Painel do Professor</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .admin-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .admin-container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        .nav-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid #E2E8F0; padding-bottom: 0.5rem; }
+        .nav-btn { padding: 0.6rem 1.2rem; border: none; background: #E2E8F0; font-weight: bold; cursor: pointer; border-radius: 6px; color: #4A5568; transition: all 0.2s; }
+        .nav-btn.active { background: #1A2B4C; color: white; }
         .form-row { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem; }
-        textarea { width: 100%; height: 100px; padding: 0.7rem; border: 2px solid #CBD5E0; border-radius: 6px; font-size: 1rem; resize: vertical; }
-        .btn-success { background-color: #2ECC71 !important; }
-        .btn-danger { background-color: #E74C3C !important; padding: 0.4rem 0.8rem !important; font-size: 0.85rem !important; }
-        table { width: 100%; border-collapse: collapse; margin-top: 2rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        textarea { width: 100%; height: 80px; padding: 0.7rem; border: 2px solid #CBD5E0; border-radius: 6px; font-size: 1rem; resize: vertical; }
+        .btn-success { background-color: #2ECC71 !important; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; height: 42px; }
+        .btn-danger { background-color: #E74C3C !important; padding: 0.4rem 0.8rem !important; font-size: 0.85rem !important; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
         th { background-color: #1A2B4C; color: white; }
         .token-box { background-color: #FFF5F5; border: 1px solid #FEB2B2; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
+        .grid-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+        @media (max-width: 768px) { .grid-forms { grid-template-columns: 1fr; } }
+        .section-view { display: none; }
+        .section-view.active { display: block; }
+        .turma-card { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
     </style>
 </head>
 <body>
     <header>
-        <h1>GeoMatrix - Painel Administrativo</h1>
-        <p>Gerenciamento do Banco de Questões (CRUD via GitHub API)</p>
+        <h1>GeoMatrix - Painel do Professor</h1>
+        <p>Gerenciamento do AVA (Questões, Turmas e Relatórios de Desempenho)</p>
     </header>
 
     <div class="admin-container">
         <div class="token-box">
             <label style="font-weight: bold; color: #9B2C2C;">Chave de Acesso GitHub (PAT):</label>
-            <input type="password" id="inputToken" placeholder="Cole seu ghp_token aqui para poder salvar..." style="width:100%; padding:0.6rem; margin-top:0.4rem; border:1px solid #CBD5E0; border-radius:6px;">
-            <p style="font-size:0.8rem; color:#718096; margin-top:0.3rem;">* Seu token fica apenas na memória do seu navegador atual, garantindo total segurança.</p>
+            <input type="password" id="inputToken" placeholder="Cole seu ghp_token aqui para poder aplicar qualquer alteração...">
         </div>
 
-        <div class="panel">
-            <h2>Cadastrar Nova Questão</h2>
-            <div class="form-row">
-                <div class="input-block">
-                    <label>Enunciado da Questão (Aceita HTML/Rich Text):</label>
-                    <textarea id="formEnunciado" placeholder="Ex: <p><strong>Desafio:</strong> Calcule o volume...</p>"></textarea>
-                </div>
-            </div>
-            <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:1rem;">
-                <div class="input-block">
-                    <label>Resposta Correta (Apenas Números Inteiros):</label>
-                    <input type="number" id="formResposta" placeholder="Ex: 120">
-                </div>
-                <div class="input-block" style="justify-content: flex-end;">
-                    <button id="btnSalvar" class="btn-success" style="width:100%; height:42px; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Salvar Questão</button>
-                </div>
-            </div>
-            <div id="statusMsg" class="feedback-box" style="margin-top:1rem;"></div>
+        <div class="nav-tabs">
+            <button id="btnTabQuestoes" class="nav-btn active" onclick="alternarAba('questoes')">Gerenciar Questões</button>
+            <button id="btnTabTurmas" class="nav-btn" onclick="alternarAba('turmas')">Turmas & Relatórios</button>
         </div>
 
-        <div class="panel" style="margin-top: 2rem;">
-            <h2>Questões Atuais no Banco</h2>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Enunciado</th>
-                            <th style="width: 120px;">Gabarito</th>
-                            <th style="width: 100px;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabelaCorpo">
-                        <tr><td colspan="3">Carregando banco de dados...</td></tr>
-                    </tbody>
-                </table>
+        <div id="statusMsg" class="feedback-box" style="margin-bottom: 1.5rem;"></div>
+
+        <div id="viewQuestoes" class="section-view active">
+            <div class="panel">
+                <h2>Cadastrar Nova Questão</h2>
+                <div class="form-row">
+                    <div class="input-block">
+                        <label>Enunciado da Questão (HTML permitido):</label>
+                        <textarea id="formEnunciado" placeholder="Ex: <p><strong>Desafio:</strong> Calcule o volume...</p>"></textarea>
+                    </div>
+                </div>
+                <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:1rem;">
+                    <div class="input-block">
+                        <label>Resposta Correta (Número Inteiro):</label>
+                        <input type="number" id="formResposta" placeholder="Ex: 120">
+                    </div>
+                    <div class="input-block" style="justify-content: flex-end;">
+                        <button onclick="adicionarQuestao()" class="btn-success" style="width:100%;">Salvar Questão</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 2rem;">
+                <h2>Questões Atuais no Banco</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Enunciado</th>
+                                <th style="width: 120px;">Gabarito</th>
+                                <th style="width: 100px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaQuestoesCorpo"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <div id="viewTurmas" class="section-view">
+            <div class="grid-forms">
+                <div class="panel">
+                    <h2>Nova Turma</h2>
+                    <div class="form-row">
+                        <div class="input-block">
+                            <label>Nome da Turma:</label>
+                            <input type="text" id="formNomeTurma" placeholder="Ex: 8º Ano C - Tarde">
+                        </div>
+                    </div>
+                    <button onclick="criarTurma()" class="btn-success" style="width:100%; margin-top:1.5rem;">Criar Turma</button>
+                </div>
+
+                <div class="panel">
+                    <h2>Vincular Aluno à Turma</h2>
+                    <div class="form-row">
+                        <div class="input-block">
+                            <label>Selecione a Turma:</label>
+                            <select id="selectTurmaAluno" style="padding: 0.6rem; border:2px solid #CBD5E0; border-radius:6px;"></select>
+                        </div>
+                    </div>
+                    <div class="control-group" style="grid-template-columns: 1fr 1fr; margin-top:0.5rem;">
+                        <div class="input-block">
+                            <label>Nome Completo:</label>
+                            <input type="text" id="formNomeAluno" placeholder="Ex: Jean Bertrand">
+                        </div>
+                        <div class="input-block">
+                            <label>Login de Usuário:</label>
+                            <input type="text" id="formUserAluno" placeholder="Ex: jean.bertrand">
+                        </div>
+                    </div>
+                    <button onclick="vincularAluno()" class="btn-success" style="width:100%; margin-top:1.2rem;">Matricular Aluno</button>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 2rem;">
+                <h2>Relatório de Desempenho por Turma</h2>
+                <div id="containerRelatorios" style="margin-top:1.5rem;"></div>
+            </div>
+        </div>
+
     </div>
 
     <script>
         const owner = "shaolinbertrand";
         const repo = "GeoMatrix";
-        const path = "questoes.json";
         
         let listaQuestoes = [];
-        let fileSha = ""; // Necessário para a API do GitHub autorizar atualizações
+        let dadosUsuarios = null;
+        let shaQuestoes = "";
+        let shaUsuarios = "";
 
-        document.addEventListener('DOMContentLoaded', buscarBancoGitHub);
-        document.getElementById('btnSalvar').addEventListener('click', adicionarQuestao);
+        document.addEventListener('DOMContentLoaded', () => {
+            buscarQuestoes();
+            buscarUsuarios();
+        });
 
-        // READ: Busca as questões existentes na API do GitHub
-        async function buscarBancoGitHub() {
-            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-            try {
-                const res = await fetch(url);
-                if(!res.ok) throw new Error("Erro ao ler banco remoto");
-                const data = await res.json();
-                
-                fileSha = data.sha; // Guarda a assinatura do arquivo atual
-                listaQuestoes = JSON.parse(atob(data.content)); // Decodifica Base64 vindo do GitHub
-                
-                renderizarTabela();
-            } catch (err) {
-                mostrarMsg("Erro ao carregar dados do GitHub remoto.", "error");
-            }
+        function alternarAba(aba) {
+            document.getElementById('viewQuestoes').classList.toggle('active', aba === 'questoes');
+            document.getElementById('viewTurmas').classList.toggle('active', aba === 'turmas');
+            document.getElementById('btnTabQuestoes').classList.toggle('active', aba === 'questoes');
+            document.getElementById('btnTabTurmas').classList.toggle('active', aba === 'turmas');
         }
 
-        function renderizarTabela() {
-            const tbody = document.getElementById('tabelaCorpo');
-            tbody.innerHTML = "";
-            
-            if(listaQuestoes.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='3'>Nenhuma questão cadastrada.</td></tr>";
-                return;
-            }
+        // ================= OPERAÇÕES DE QUESTÕES =================
+        async function buscarQuestoes() {
+            try {
+                const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/questoes.json?t=${new Date().getTime()}`);
+                const data = await res.json();
+                shaQuestoes = data.sha;
+                listaQuestoes = JSON.parse(atob(data.content));
+                renderizarQuestoes();
+            } catch (err) { console.error("Erro ao ler questões."); }
+        }
 
-            listaQuestoes.forEach((q, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${q.enunciado}</td>
-                    <td><strong>${q.resposta_correta}</strong></td>
-                    <td><button class="answer-block button btn-danger" onclick="deletarQuestao(${index})">Excluir</button></td>
-                `;
-                tbody.appendChild(tr);
+        function renderizarQuestoes() {
+            const tbody = document.getElementById('tabelaQuestoesCorpo');
+            tbody.innerHTML = listaQuestoes.length === 0 ? "<tr><td colspan='3'>Nenhuma questão.</td></tr>" : "";
+            listaQuestoes.forEach((q, idx) => {
+                tbody.innerHTML += `<tr><td>${q.enunciado}</td><td><strong>${q.resposta_correta}</strong></td><td><button class="btn-danger" onclick="deletarQuestao(${idx})">Excluir</button></td></tr>`;
             });
         }
 
-        // CREATE: Adiciona um novo item ao array e envia via API
         async function adicionarQuestao() {
-            const token = document.getElementById('inputToken').value;
-            const enunciado = document.getElementById('formEnunciado').value;
-            const resposta = document.getElementById('formResposta').value;
+            const tok = document.getElementById('inputToken').value;
+            const enu = document.getElementById('formEnunciado').value;
+            const res = document.getElementById('formResposta').value;
+            if(!tok || !enu || !res) return mostrarMsg("Preencha o Token, Enunciado e Gabarito.", "error");
 
-            if(!token) return mostrarMsg("❌ Você precisa inserir o Token do GitHub para salvar!", "error");
-            if(!enunciado || !resposta) return mostrarMsg("❌ Preencha todos os campos da questão!", "error");
-
-            const novaQ = { enunciado: enunciado, resposta_correta: Number(resposta) };
-            listaQuestoes.push(novaQ); // Adiciona na lista local
-
-            await persistirNoGitHub(token, "Professor adicionou nova questão");
-            document.getElementById('formEnunciado').value = "";
-            document.getElementById('formResposta').value = "";
+            listaQuestoes.push({ enunciado: enu, resposta_correta: Number(res) });
+            await enviarProGitHub('questoes.json', listaQuestoes, shaQuestoes, tok, "Adicionada nova questão", () => {
+                document.getElementById('formEnunciado').value = "";
+                document.getElementById('formResposta').value = "";
+                buscarQuestoes();
+            });
         }
 
-        // DELETE: Remove a linha selecionada e atualiza o arquivo remoto
-        async function deletarQuestao(index) {
-            const token = document.getElementById('inputToken').value;
-            if(!token) return mostrarMsg("❌ Insira o seu Token do GitHub no topo para poder excluir!", "error");
-
-            if(confirm("Tem certeza que deseja excluir esta questão permanentemente?")) {
-                listaQuestoes.splice(index, 1); // Remove do array local
-                await persistirNoGitHub(token, "Professor removeu uma questão");
+        async function deletarQuestao(idx) {
+            const tok = document.getElementById('inputToken').value;
+            if(!tok) return mostrarMsg("Insira o seu Token para poder excluir.", "error");
+            if(confirm("Deseja apagar esta questão?")) {
+                listaQuestoes.splice(idx, 1);
+                await enviarProGitHub('questoes.json', listaQuestoes, shaQuestoes, tok, "Removida uma questão", buscarQuestoes);
             }
         }
 
-        // EXECUTA O COMMIT REAL NA API DO GITHUB (PUT)
-        async function persistirNoGitHub(token, mensagemCommit) {
-            mostrarMsg("Enviando alterações para o GitHub...", "success");
-            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-            
-            // Converte o JSON atualizado em Base64 (exigência da API do GitHub)
-            const novoConteudoBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(listaQuestoes, null, 2))));
-
-            const bodyRequest = {
-                message: mensagemCommit,
-                content: novoConteudoBase64,
-                sha: fileSha // Passa o SHA antigo para provar sincronia
-            };
-
+        // ================= OPERAÇÕES DE TURMAS E ALUNOS =================
+        async function buscarUsuarios() {
             try {
-                const res = await fetch(url, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(bodyRequest)
+                const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/usuarios.json?t=${new Date().getTime()}`);
+                const data = await res.json();
+                shaUsuarios = data.sha;
+                dadosUsuarios = JSON.parse(atob(data.content));
+                renderizarPainelTurmas();
+            } catch (err) { console.error("Erro ao ler usuários."); }
+        }
+
+        function renderizarPainelTurmas() {
+            if(!dadosUsuarios) return;
+            const select = document.getElementById('selectTurmaAluno');
+            const container = document.getElementById('containerRelatorios');
+            
+            select.innerHTML = "";
+            container.innerHTML = dadosUsuarios.turmas.length === 0 ? "<p>Nenhuma turma criada até o momento.</p>" : "";
+
+            dadosUsuarios.turmas.forEach(t => {
+                // Preenche o Select
+                select.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`;
+                
+                // Constrói as tabelas de relatórios visuais
+                let linhasAlunos = t.alunos.length === 0 ? "<tr><td colspan='3'>Nenhum aluno matriculado nesta turma.</td></tr>" : "";
+                t.alunos.forEach(a => {
+                    linhasAlunos += `<tr><td>${a.nome} (<em>@${a.usuario}</em>)</td><td><strong>${a.desafios_concluidos}</strong></td><td><span style="color:#B7791F; font-weight:bold;">${a.pontuacao} pts</span></td></tr>`;
                 });
 
-                if(res.ok) {
-                    const data = await res.json();
-                    fileSha = data.content.sha; // Atualiza o SHA com a nova versão
-                    mostrarMsg("🎉 Banco de dados atualizado com sucesso no GitHub!", "success");
-                    renderizarTabela();
-                } else {
-                    throw new Error("Falha no envio");
-                }
-            } catch (err) {
-                mostrarMsg("❌ Erro ao salvar. Verifique se o seu Token está correto e ativo.", "error");
-                await buscarBancoGitHub(); // Desfaz alterações locais resincronizando
-            }
+                container.innerHTML += `
+                    <div class="turma-card">
+                        <h3>🏫 ${t.nome_turma} <span style="font-size:0.85rem; color:#718096;">(ID: ${t.id})</span></h3>
+                        <table>
+                            <thead>
+                                <tr><th>Nome do Aluno</th><th>Desafios Feitos</th><th>Pontuação Total</th></tr>
+                            </thead>
+                            <tbody>${linhasAlunos}</tbody>
+                        </table>
+                    </div>
+                `;
+            });
         }
 
-        function mostrarMsg(texto, tipo) {
-            const box = document.getElementById('statusMsg');
-            box.innerText = texto;
-            box.className = `feedback-box ${tipo === 'success' ? 'feedback-success' : 'feedback-error'}`;
-            box.style.display = 'block';
-        }
-    </script>
-</body>
-</html>
+        async function criarTurma() {
+            const tok = document.getElementById('inputToken').value;
+            const nome = document.getElementById('formNomeTurma').value.trim();
+            if(!tok || !nome) return mostrarMsg("Preencha o Token e o Nome da Turma.", "error");
+
+            const idTurma = "turma_" + Math.random().toString(3
