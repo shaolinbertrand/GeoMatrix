@@ -88,7 +88,6 @@
             }
 
             if (tipoUsuario === 'professor') {
-                // Validação do Professor
                 const prof = dadosUsuarios.professores.find(p => p.usuario === user && p.senha === senha);
                 if (prof) {
                     localStorage.setItem('session_role', 'professor');
@@ -98,7 +97,6 @@
                     mostrarErro("Usuário ou senha de professor incorretos.");
                 }
             } else {
-                // Validação do Aluno vasculhando as turmas
                 let alunoEncontrado = null;
                 let turmaId = null;
 
@@ -114,8 +112,10 @@
                 if (alunoEncontrado) {
                     localStorage.setItem('session_role', 'aluno');
                     localStorage.setItem('session_id', alunoEncontrado.id);
-                    localStorage.setItem('session_name', alunoEncontrado.name || alunoEncontrado.nome);
+                    localStorage.setItem('session_name', alunoEncontrado.nome);
                     localStorage.setItem('session_turma', turmaId);
+                    
+                    // GARANTE QUE O SIMULADOR SAIBA SE EXISTE UM TOKEN ATIVO PARA GRAVAÇÃO
                     window.location.href = 'index.html';
                 } else {
                     mostrarErro("Usuário ou senha de aluno incorretos.");
