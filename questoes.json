@@ -1,14 +1,18 @@
 [
   {
-    "enunciado": "<p><strong>Desafio 1:</strong> Um caminhão de entregas possui uma caçamba baú para transporte de cargas em formato de bloco retangular. As dimensões internas dessa caçamba são 3 metros de largura, 2 metros de altura e 5 metros de profundidade. Qual é o volume total disponível, em metros cúbicos, que esse caminhão pode transportar?</p>",
+    "enunciado": "<p><strong>Desafio 1:</strong> Um caminhÃ£o de entregas possui uma caÃ§amba baÃº para transporte de cargas em formato de bloco retangular. As dimensÃµes internas dessa caÃ§amba sÃ£o 3 metros de largura, 2 metros de altura e 5 metros de profundidade. Qual Ã© o volume total disponÃ­vel, em metros cÃºbicos, que esse caminhÃ£o pode transportar?</p>",
     "resposta_correta": 30
   },
   {
-    "enunciado": "<p><strong>Desafio 2:</strong> Uma escola decidiu construir uma nova cisterna subterrânea em formato de paralelepípedo retângulo para armazenar água da chuva. A estrutura foi projetada com 4 metros de largura, 2 metros de altura e 3 metros de profundidade. Qual será a capacidade volumétrica total dessa cisterna em metros cúbicos?</p>",
+    "enunciado": "<p><strong>Desafio 2:</strong> Uma escola decidiu construir uma nova cisterna subterrÃ¢nea em formato de paralelepÃ­pedo retÃ¢ngulo para armazenar Ã¡gua da chuva. A estrutura foi projetada com 4 metros de largura, 2 metros de altura e 3 metros de profundidade. Qual serÃ¡ a capacidade volumÃ©trica total dessa cisterna em metros cÃºbicos?</p>",
     "resposta_correta": 24
   },
   {
-    "enunciado": "<p><strong>Desafio 3:</strong> Um pequeno produtor armazena caixas de sementes que possuem formato de bloco retangular. Cada caixa tem as seguintes dimensões: 20 cm de largura, 10 cm de altura e 30 cm de profundidade. Calcule, em centímetros cúbicos, o volume de espaço que apenas uma dessas caixas ocupa no depósito.</p>",
+    "enunciado": "<p><strong>Desafio 3:</strong> Um pequeno produtor armazena caixas de sementes que possuem formato de bloco retangular. Cada caixa tem as seguintes dimensÃµes: 20 cm de largura, 10 cm de altura e 30 cm de profundidade. Calcule, em centÃ­metros cÃºbicos, o volume de espaÃ§o que apenas uma dessas caixas ocupa no depÃ³sito.</p>",
     "resposta_correta": 6000
+  },
+  {
+    "enunciado": "<p><strong>Desafio 4:</strong> Um arquiteto está projetando uma piscina infantil para um condomínio em Boa Vista. A piscina terá o formato de um bloco retangular com 5 metros de largura, 3 metros de profundidade e 2 metros de altura (para garantir a segurança das crianças). Qual será o volume total de água, em metros cúbicos, necessário para encher completamente essa piscina?</p>",
+    "resposta_correta": 30
   }
 ]
