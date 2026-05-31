@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoMatrix - Espaço Geometria</title>
+    <style>
+        :root {
+            --primary-color: #1A2B4C;
+            --accent-color: #FF4D4D;
+            --bg-color: #F4F6F9;
+            --card-bg: #FFFFFF;
+            --success-color: #2ECC71;
+            --error-color: #E74C3C;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.3rem;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .motor-container {
+            width: 100%;
+            height: 450px;
+            border: 2px solid #E2E8F0;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: white;
+        }
+
+        motor-geometrico {
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-group {
+            margin-top: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .input-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-block label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #4A5568;
+        }
+
+        .input-block input {
+            padding: 0.6rem;
+            border: 2px solid #CBD5E0;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-block input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .volume-display {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            background-color: #EBF8FF;
+            color: #2B6CB0;
+            padding: 0.7rem;
+            border-radius: 6px;
+        }
+
+        .score-badge {
+            align-self: flex-end;
+            background-color: #FEFCBF;
+            color: #B7791F;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            border: 1px solid #F6E05E;
+        }
+
+        .enunciado-box {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            min-height: 80px;
+        }
+
+        .answer-block {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .answer-block input {
+            flex: 1;
+            padding: 0.7rem;
+            border: 2px solid #CBD5E0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .answer-block button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .answer-block button:hover {
+            background-color: #2C3E50;
+        }
+
+        .feedback-box {
+            padding: 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .feedback-success {
+            background-color: #D4EFDF;
+            color: #196F3D;
+            border-left: 5px solid var(--success-color);
+        }
+
+        .feedback-error {
+            background-color: #FADBD8;
+            color: #78281F;
+            border-left: 5px solid var(--error-color);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    <script src="motor-geometrico.js" defer></script>
+</head>
+<body>
+
+    <header>
+        <h1>GeoMatrix</h1>
+        <p>Ambiente Virtual de Aprendizagem de Geometria Espacial (BNCC)</p>
+    </header>
+
+    <div class="main-container">
+        
+        <div class="panel">
+            <div class="motor-container">
+                <motor-geometrico id="custom-motor-geometrico"></motor-geometrico>
+            </div>
+            
+            <div class="control-group">
+                <div class="input-block">
+                    <label for="inputLargura">Largura</label>
+                    <input type="number" id="inputLargura" value="160">
+                </div>
+                <div class="input-block">
+                    <label for="inputAltura">Altura</label>
+                    <input type="number" id="inputAltura" value="100">
+                </div>
+                <div class="input-block">
+                    <label for="inputProfundidade">Profundidade</label>
+                    <input type="number" id="inputProfundidade" value="80">
+                </div>
+            </div>
+
+            <div id="textVolume" class="volume-display">Volume Total: 1.280.000 u³.</div>
+        </div>
+
+        <div class="panel">
+            <div id="textPontuacao" class="score-badge">Pontos: 0</div>
+            
+            <div id="textEnunciado" class="enunciado-box">Carregando os desafios geométricos...</div>
+            
+            <div class="answer-block" id="interactive-controls">
+                <input type="number" id="inputRespostaAluno" placeholder="Digite sua resposta aqui...">
+                <button id="btnVerificar">Verificar Resposta</button>
+            </div>
+
+            <div id="boxFeedback" class="feedback-box"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // BANCO DE QUESTÕES OFICIAL (MIGRADO DO CMS DO WIX)
+        const desafios = [
+            {
+                enunciado: "<p><strong>Desafio 1:</strong> Um caminhão de entregas possui uma caçamba baú para transporte de cargas em formato de bloco retangular. As dimensões internas dessa caçamba são 3 metros de largura, 2 metros de altura e 5 metros de profundidade. Qual é o volume total disponível, em metros cúbicos, que esse caminhão pode transportar?</p>",
+                resposta_correta: 30
+            },
+            {
+                enunciado: "<p><strong>Desafio 2:</strong> Uma escola decidiu construir uma nova cisterna subterrânea em formato de paralelepípedo retângulo para armazenar água da chuva. A estrutura foi projetada com 4 metros de largura, 2 metros de altura e 3 metros de profundidade. Qual será a capacidade volumétrica total dessa cisterna em metros cúbicos?</p>",
+                resposta_correta: 24
+            },
+            {
+                enunciado: "<p><strong>Desafio 3:</strong> Um pequeno produtor armazena caixas de sementes que possuem formato de bloco retangular. Cada caixa tem as seguintes dimensões: 20 cm de largura, 10 cm de altura e 30 cm de profundidade. Calcule, em centímetros cúbicos, o volume de espaço que apenas uma dessas caixas ocupa no depósito.</p>",
+                resposta_correta: 6000
+            }
+        ];
+
+        let desafioAtualIndex = 0;
+        let pontuacao = 0;
+
+        // Referências dos Elementos DOM
+        const inputLargura = document.getElementById('inputLargura');
+        const inputAltura = document.getElementById('inputAltura');
+        const inputProfundidade = document.getElementById('inputProfundidade');
+        const textVolume = document.getElementById('textVolume');
+        const motor = document.getElementById('custom-motor-geometrico');
+
+        const textEnunciado = document.getElementById('textEnunciado');
+        const inputRespostaAluno = document.getElementById('inputRespostaAluno');
+        const btnVerificar = document.getElementById('btnVerificar');
+        const textPontuacao = document.getElementById('textPontuacao');
+        const boxFeedback = document.getElementById('boxFeedback');
+        const interactiveControls = document.getElementById('interactive-controls');
+
+        // Inicialização do fluxo da aplicação
+        document.addEventListener('DOMContentLoaded', () => {
+            atualizarDimensoes();
+            carregarDesafio();
+
+            // Configuração dos Eventos dos Inputs do Motor
+            inputLargura.addEventListener('input', atualizarDimensoes);
+            inputAltura.addEventListener('input', atualizarDimensoes);
+            inputProfundidade.addEventListener('input', atualizarDimensoes);
+
+            // Evento do Botão de Validação
+            btnVerificar.addEventListener('click', verificarResposta);
+        });
+
+        function atualizarDimensoes() {
+            const larg = inputLargura.value || "160";
+            const alt = inputAltura.value || "100";
+            const prof = inputProfundidade.value || "80";
+
+            const volume = Number(larg) * Number(alt) * Number(prof);
+            textVolume.innerText = `Volume Total: ${volume.toLocaleString()} u³.`;
+
+            if (motor) {
+                motor.setAttribute('largura', larg);
+                motor.setAttribute('altura', alt);
+                motor.setAttribute('profundidade', prof);
+            }
+        }
+
+        function carregarDesafio() {
+            boxFeedback.style.display = 'none';
+            if (desafioAtualIndex < desafios.length) {
+                // Renderiza o HTML vindo do banco mantendo o formato sem tags visíveis
+                textEnunciado.innerHTML = desafios[desafioAtualIndex].enunciado;
+                inputRespostaAluno.value = "";
+            } else {
+                textEnunciado.innerHTML = "<h2>🏆 Incrível, você completou todos os desafios do GeoMatrix!</h2>";
+                interactiveControls.style.display = 'none';
+                textPontuacao.style.backgroundColor = '#D4EFDF';
+                textPontuacao.style.color = '#196F3D';
+                textPontuacao.style.borderColor = '#2ECC71';
+            }
+        }
+
+        function verificarResposta() {
+            if (desafios.length === 0) return;
+
+            const respostaDigitada = Number(inputRespostaAluno.value);
+            const respostaCerta = Number(desafios[desafioAtualIndex].resposta_correta);
+
+            if (respostaDigitada === respostaCerta) {
+                pontuacao += 10;
+                textPontuacao.innerText = `Pontos: ${pontuacao}`;
+                
+                boxFeedback.className = "feedback-box feedback-success";
+                boxFeedback.innerHTML = "✅ Resposta correta! Excelente raciocínio geométrico!";
+                boxFeedback.style.display = 'block';
+
+                setTimeout(() => {
+                    desafioAtualIndex++;
+                    carregarDesafio();
+                }, 3000);
+            } else {
+                boxFeedback.className = "feedback-box feedback-error";
+                boxFeedback.innerHTML = "❌ Resposta incorreta. Dica: Use o simulador 3D ao lado colocando as dimensões do enunciado para visualizar o sólido e conferir seus cálculos!";
+                boxFeedback.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
