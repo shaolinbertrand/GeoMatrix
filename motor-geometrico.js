@@ -12,7 +12,7 @@ class MotorGeometrico extends HTMLElement {
         this.isDragging = false;
         this.previousMousePosition = { x: 0, y: 0 };
 
-        // Dimensões iniciais padrão (BNCC 8º Ano)
+        // Valores de entrada digitados pelo usuário
         this.boxWidth = 160;
         this.boxHeight = 100;
         this.boxDepth = 80;
@@ -56,7 +56,7 @@ class MotorGeometrico extends HTMLElement {
 
     resizeCanvas() {
         this.canvas.width = this.offsetWidth || 600;
-        this.canvas.height = this.offsetHeight || 400;
+        this.canvas.height = this.offsetHeight || 500;
         this.render();
     }
 
@@ -84,11 +84,18 @@ class MotorGeometrico extends HTMLElement {
         });
     }
 
-    // CORREÇÃO AQUI: Vértices mapeados de forma limpa e sem erros de divisão
+    // MATEMÁTICA DA ESCALA NORMALIZADA INTERNA
     getVertices() {
-        const w = this.boxWidth / 2;
-        const h = this.boxHeight / 2;
-        const d = this.boxDepth / 2;
+        // Encontra a maior dimensão digitada para servir de base de proporção
+        const maxValor = Math.max(this.boxWidth, this.boxHeight, this.boxDepth) || 1;
+        
+        // Define um tamanho visual fixo máximo para o sólido dentro da tela (ex: 180px)
+        const tamanhoBaseVisual = 180;
+
+        // Normaliza os tamanhos: a maior dimensão terá sempre 180px e as outras serão proporcionais
+        const w = (this.boxWidth / maxValor) * tamanhoBaseVisual;
+        const h = (this.boxHeight / maxValor) * tamanhoBaseVisual;
+        const d = (this.boxDepth / maxValor) * tamanhoBaseVisual;
 
         return [
             {x: -w, y: -h, z: -d}, // 0
@@ -102,23 +109,11 @@ class MotorGeometrico extends HTMLElement {
         ];
     }
 
-    // CÂMERA ADAPTATIVA CALIBRADA PARA AS TRÊS DIMENSÕES
-    // CÂMERA ADAPTATIVA CALIBRADA PARA ALTURA E LARGURA (SEM CORTES)
     project(point, width, height) {
-        // 1. Encontra o maior valor absoluto entre as três dimensões dinâmicas
-        const maiorDimensao = Math.max(this.boxWidth, this.boxHeight, this.boxDepth);
-        
-        // 2. CORREÇÃO: Aumentamos o multiplicador para 3.2 para dar mais margem vertical
-        // E adicionamos um fator extra se a altura for a maior dimensão
-        let multiplicador = 3.2;
-        if (this.boxHeight === maiorDimensao) {
-            multiplicador = 3.8; // Afasta ainda mais se o objeto for muito alto
-        }
-        
-        const distance = Math.max(450, maiorDimensao * multiplicador);
-        const f = 400; // Campo de visão (focal length)
+        const distance = 400;
+        const f = 400; 
 
-        // Rotações tridimensionais nos eixos X e Y
+        // Rotações tridimensionais
         let y1 = point.y * Math.cos(this.angleX) - point.z * Math.sin(this.angleX);
         let z1 = point.y * Math.sin(this.angleX) + point.z * Math.cos(this.angleX);
 
@@ -128,8 +123,8 @@ class MotorGeometrico extends HTMLElement {
         const scale = f / (f + z2 + distance);
         
         return {
-            x: x2 * scale * 2.5 + width / 2,
-            y: y1 * scale * 2.5 + height / 2
+            x: x2 * scale * 2 + width / 2,
+            y: y1 * scale * 2 + height / 2
         };
     }
 
