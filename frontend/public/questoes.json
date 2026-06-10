@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "enunciado": "<h2>Desafio 1: O Reservatório de Água (Geometria Espacial)</h2><p>Um reservatório de água no formato de um bloco retangular possui as seguintes dimensões no simulador: <strong>Largura = 160 u</strong>, <strong>Altura = 100 u</strong> e <strong>Profundidade = 80 u</strong>.</p><p>Utilize o simulador 3D ao lado para visualizar o sólido. Sabendo que o volume $V$ de um prisma reto retangular é dado por $V = \text{Largura} \times \text{Altura} \times \text{Profundidade}$, qual é o <strong>Volume Total</strong> deste reservatório em unidades cúbicas ($u^3$)?</p>",
+    "enunciado": "<h2>Desafio 1: O Reservatório de Água (Geometria Espacial)</h2><p>Um reservatório de água no formato de um bloco retangular possui as seguintes dimensões no simulador: <strong>Largura = 160 u</strong>, <strong>Altura = 100 u</strong> e <strong>Profundidade = 80 u</strong>.</p><p>Utilize o simulador 3D ao lado para visualizar o sólido. Sabendo que o volume V de um prisma reto retangular é dado por V = Largura x Altura x Profundidade, qual é o <strong>Volume Total</strong> deste reservatório em unidades cúbicas (u³)?</p>",
     "resposta_correta": 1280000
   },
   {
@@ -11,12 +11,12 @@
   },
   {
     "id": 3,
-    "enunciado": "<h2>Desafio 3: O Cubo Perfeito (Raiz Cúbica e Potenciação)</h2><p>Um aluno do 9º ano está modelando uma caixa organizadora que possui o formato de um <strong>Cubo Perfeito</strong>. Em um cubo, todas as arestas são iguais, ou seja, $\text{Largura} = \text{Altura} = \text{Profundidade}$.</p><p>Ajuste o simulador para que todas as três dimensões fiquem com o valor de <strong>60 u</strong>. Calcule o volume gerado ($60^3$). Qual é o volume dessa caixa organizadora?</p>",
+    "enunciado": "<h2>Desafio 3: O Cubo Perfeito (Raiz Cúbica e Potenciação)</h2><p>Um aluno do 9º ano está modelando uma caixa organizadora que possui o formato de um <strong>Cubo Perfeito</strong>. Em um cubo, todas as arestas são iguais, ou seja, Largura = Altura = Profundidade.</p><p>Ajuste o simulador para que todas as três dimensões fiquem com o valor de <strong>60 u</strong>. Calcule o volume gerado (60³). Qual é o volume dessa caixa organizadora?</p>",
     "resposta_correta": 216000
   },
   {
     "id": 4,
-    "enunciado": "<h2>Desafio 4: Descobrindo a Dimensão Escondida (Álgebra e Equações)</h2><p>Um prisma retangular possui um volume total de <strong>300.000 u³</strong>. O operador do sistema informou que a <strong>Largura é 100 u</strong> e a <strong>Altura é 50 u</strong>, mas a Profundidade é desconhecida ($x$).</p><p>Monte a equação: $100 \times 50 \times x = 300.000$. Descubra o valor de $x$ e, para conferir seu cálculo, digite esse valor no campo <strong>Profundidade</strong> do simulador para ver se o volume total bate com 300.000. Qual é o valor de $x$?</p>",
+    "enunciado": "<h2>Desafio 4: Descobrindo a Dimensão Escondida (Álgebra e Equações)</h2><p>Um prisma retangular possui um volume total de <strong>300.000 u³</strong>. O operador do system informou que a <strong>Largura é 100 u</strong> e a <strong>Altura é 50 u</strong>, mas a Profundidade é desconhecida (x).</p><p>Monte a equação: 100 x 50 x x = 300.000. Descubra o valor de x e, para conferir seu cálculo, digite esse valor no campo <strong>Profundidade</strong> do simulador para ver se o volume total bate com 300.000. Qual é o valor de x?</p>",
     "resposta_correta": 60
   },
   {
