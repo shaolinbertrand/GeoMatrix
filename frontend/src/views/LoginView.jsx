@@ -17,10 +17,13 @@ export default function LoginView() {
         }
 
         try {
-            const response = await fetch(`${BASE_URL}/login`, {
+            // SELEÇÃO DINÂMICA DO ENDPOINT: Escolhe a rota de acordo com o tipo de usuário selecionado
+            const endpoint = tipoUsuario === 'professor' ? '/login-professor' : '/login';
+
+            const response = await fetch(`${BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ usuario, senha, tipo: tipoUsuario })
+                body: JSON.stringify({ usuario, senha })
             });
             const dados = await response.json();
 
@@ -29,10 +32,13 @@ export default function LoginView() {
                 localStorage.setItem('session_name', dados.nome);
                 
                 if (dados.role === 'professor') {
+                    // Armazena o ID único gerado na coleção de Professores
+                    localStorage.setItem('session_id', dados._id);
                     navigate('/admin');
                 } else {
-                    localStorage.setItem('session_id', dados.id);
-                    localStorage.setItem('session_turma', dados.turma);
+                    // Mantém o mapeamento relacional clássico do Aluno
+                    localStorage.setItem('session_id', dados._id);
+                    localStorage.setItem('session_turma', dados.turma_id?.nome || 'Sem Turma');
                     navigate('/simulador');
                 }
             } else {

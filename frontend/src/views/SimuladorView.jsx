@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BASE_URL } from '../api';
+import { verificarRespostaIA, listarAlunos } from '../api';
 import MotorGeometrico from '../components/MotorGeometrico';
 
 export default function SimuladorView() {
     const [desafios, setDesafios] = useState([]);
     const [indexAtual, setIndexAtual] = useState(0);
+    const [questaoAtual, setQuestaoAtual] = useState(null); 
     const [pontuacao, setPontuacao] = useState(0);
     const [respostaAluno, setRespostaAluno] = useState('');
     const [feedback, setFeedback] = useState({ msg: '', tipo: '' });
 
-    // Inicializadores padrão numéricos para evitar que o motor gráfico inicie zerado ou escuro
     const [largura, setLargura] = useState(160);
     const [altura, setAltura] = useState(100);
     const [profundidade, setProfundidade] = useState(80);
@@ -24,56 +24,55 @@ export default function SimuladorView() {
     }, []);
 
     const inicializarSimulador = async () => {
-        // 1. Carrega dados do MongoDB
         try {
-            const res = await fetch(`${BASE_URL}/alunos`);
-            const alunos = await res.json();
-            if (res.ok) {
-                const logado = alunos.find(a => String(a._id) === String(alunoId));
-                if (logado) {
-                    setPontuacao(logado.pontuacao || 0);
-                    setIndexAtual(logado.desafios_concluidos || 0);
-                }
+            const alunos = await listarAlunos();
+            const logado = alunos.find(a => String(a._id) === String(alunoId));
+            if (logado) {
+                setPontuacao(logado.pontuacao || 0);
+                setIndexAtual(logado.desafios_concluidos || 0);
             }
         } catch (e) { 
-            console.warn("API offline, rodando em modo sandbox local."); 
+            console.warn("Modo sandbox ativado."); 
         }
 
-        // 2. Carrega as questões da pasta pública
         try {
             const resQ = await fetch('/questoes.json');
             const questoes = await resQ.json();
             setDesafios(questoes);
+            setQuestaoAtual(questoes[indexAtual] || questoes[0]);
         } catch (e) { 
             console.error("Erro ao ler banco de questões."); 
         }
     };
 
-    const verificarResposta = async () => {
-        if (desafios.length === 0) return;
+    const handleVerificarResposta = async () => {
+        if (!questaoAtual) return;
         
-        const certa = Number(desafios[indexAtual].resposta_correta);
-        if (Number(respostaAluno) === certa) {
-            const novaPontuacao = pontuacao + 10;
-            const novoIndex = indexAtual + 1;
-            
-            setPontuacao(novaPontuacao);
-            setIndexAtual(novoIndex);
-            setFeedback({ msg: '✅ Resposta correta! Sincronizando progresso...', tipo: 'success' });
-            setRespostaAluno('');
+        try {
+            // CORREÇÃO: Garante o envio do identificador correto indiferente da origem (Mongoose ID ou JSON id)
+            const idParaEnvio = questaoAtual._id || questaoAtual.id || indexAtual;
+            const dados = await verificarRespostaIA(alunoId, idParaEnvio, respostaAluno);
 
-            // Salva o progresso no MongoDB
-            try {
-                await fetch(`${BASE_URL}/salvar-progresso`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ alunoId, pontuacao: novaPontuacao, desafios_concluidos: novoIndex })
+            if (dados.status === 'sucesso') {
+                setFeedback({ msg: '✅ Resposta correta! +10 XP arrecadados.', tipo: 'success' });
+                setPontuacao(prev => prev + 10);
+                const proximoIndex = indexAtual + 1;
+                setIndexAtual(proximoIndex);
+                setQuestaoAtual(desafios[proximoIndex]);
+                setRespostaAluno('');
+            } else {
+                setFeedback({ 
+                    msg: '❌ Resposta incorreta. O cérebro do GeoMatrix detectou sua dificuldade e recalibrou sua rota!', 
+                    tipo: 'error' 
                 });
-            } catch (e) { 
-                console.error("Erro de persistência na API local."); 
+                
+                if (dados.proximaQuestao) {
+                    setQuestaoAtual(dados.proximaQuestao);
+                }
+                setRespostaAluno('');
             }
-        } else {
-            setFeedback({ msg: '❌ Resposta incorreta. Dica: Use os seletores numéricos para alterar as dimensões do bloco 3D ao lado e conferir seus cálculos!', tipo: 'error' });
+        } catch (err) {
+            setFeedback({ msg: 'Erro ao processar resposta no servidor.', tipo: 'error' });
         }
     };
 
@@ -90,7 +89,7 @@ export default function SimuladorView() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 1rem' }}>
                     <div style={{ textAlign: 'left' }}>
                         <h1 style={{ margin: 0, fontSize: '1.8rem' }}>GeoMatrix</h1>
-                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', opacity: 0.8 }}>Ambiente Virtual de Aprendizagem (Matemática 8º/9º Ano)</p>
+                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', opacity: 0.8 }}>Ambiente Virtual de Aprendizagem Adaptativo</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <span style={{ fontWeight: 'bold', display: 'block' }}>👋 Olá, {alunoNome || 'Estudante'}!</span>
@@ -100,12 +99,9 @@ export default function SimuladorView() {
             </header>
 
             <div className="main-container">
-                {/* PAINEL ESQUERDO - AMBIENTE 3D */}
                 <div className="panel">
                     <h3 style={{ marginTop: 0, color: '#1A2B4C' }}>📐 Simulador Espacial Reativo</h3>
-                    
                     <MotorGeometrico largura={largura} altura={altura} profundidade={profundidade} />
-                    
                     <div className="control-group">
                         <div className="input-block">
                             <label>Largura (X)</label>
@@ -123,22 +119,24 @@ export default function SimuladorView() {
                     <div className="volume-display">Volume Praticado: {volumeTotal.toLocaleString()} u³.</div>
                 </div>
 
-                {/* PAINEL DIREITO - SISTEMA GAMIFICADO */}
                 <div className="panel">
                     <div className="score-badge">Pontuação: {pontuacao} XP</div>
                     
                     <div className="enunciado-box" style={{ minHeight: '180px', border: '1px dashed #CBD5E0', padding: '1rem', borderRadius: '6px', backgroundColor: '#FFF', marginBottom: '1.5rem' }}>
-                        {desafios.length > 0 && indexAtual < desafios.length ? (
-                            <div dangerouslySetInnerHTML={{ __html: desafios[indexAtual].enunciado }} />
+                        {questaoAtual ? (
+                            <div>
+                                <span style={{ fontSize: '11px', color: '#B7791F', fontWeight: 'bold' }}>FOCO ATUAL: {questaoAtual.conteudo || "Geometria Geral"}</span>
+                                <div dangerouslySetInnerHTML={{ __html: questaoAtual.enunciado }} />
+                            </div>
                         ) : (
                             <div style={{ textAlign: 'center', padding: '1rem' }}>
-                                <h2>🏆 Parabéns!</h2>
-                                <p>Você concluiu com sucesso toda a trilha de desafios do GeoMatrix para o 8º e 9º ano!</p>
+                                <h2>🏆 Trilha Concluída!</h2>
+                                <p>Você concluiu com sucesso todos os desafios do GeoMatrix!</p>
                             </div>
                         )}
                     </div>
                     
-                    {indexAtual < desafios.length && (
+                    {questaoAtual && (
                         <div className="answer-block" style={{ display: 'flex', gap: '0.5rem' }}>
                             <input 
                                 type="number" 
@@ -147,7 +145,7 @@ export default function SimuladorView() {
                                 placeholder="Insira o valor numérico calculado..." 
                                 style={{ flex: 1, padding: '0.7rem', border: '2px solid #CBD5E0', borderRadius: '6px', fontSize: '1rem' }}
                             />
-                            <button onClick={verificarResposta} style={{ background: '#1A2B4C', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Enviar Gabarito</button>
+                            <button onClick={handleVerificarResposta} style={{ background: '#1A2B4C', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Enviar Gabarito</button>
                         </div>
                     )}
 

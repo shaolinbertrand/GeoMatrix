@@ -1,50 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../api';
 
-export default function AdminView() {
-    const [aba, setAba] = useState('questoes');
-    const [alunos, setAlunos] = useState([]);
-    const [questoes, setQuestoes] = useState([]); // ESTADO PARA AS QUESTÕES
+export default function AdminView({ professor, onLogout }) {
+    // Estados para gerenciamento de mensagens e dados das turmas/alunos
+    const [msg, setMsg] = useState({ txt: '', tipo: '' });
+    const [t_lista, setT_lista] = useState([]);
+    const [alunosLista, setAlunosLista] = useState([]);
+    const [turmaSelecionada, setTurmaSelecionada] = useState('');
+
+    // Estados dos formulários
     const [nomeAluno, setNomeAluno] = useState('');
     const [userAluno, setUserAluno] = useState('');
-    const [turmaSelecionada, setTurmaSelecionada] = useState('8º Ano A');
     const [novaTurmaNome, setNovaTurmaNome] = useState('');
-    const [msg, setMsg] = useState({ txt: '', tipo: '' });
-    const navigate = useNavigate();
 
-    // Campos do formulário de nova questão
-    const [novoEnunciado, setNovoEnunciado] = useState('');
-    const [novaRespostaCerta, setNovaRespostaCerta] = useState('');
-
+    // Carregamento inicial de dados
     useEffect(() => {
+        buscarTurmas();
         buscarAlunos();
-        buscarQuestoes();
     }, []);
 
-    // Busca os alunos no MongoDB
+    const buscarTurmas = async () => {
+        try {
+            const res = await fetch(`${BASE_URL}/turmas`);
+            if (res.ok) {
+                const dados = await res.json();
+                setT_lista(dados);
+                if (dados.length > 0) setTurmaSelecionada(dados[0].nome);
+            }
+        } catch (err) {
+            console.error("Erro ao buscar turmas:", err);
+        }
+    };
+
     const buscarAlunos = async () => {
         try {
             const res = await fetch(`${BASE_URL}/alunos`);
-            const dados = await res.json();
-            if (res.ok) setAlunos(dados);
+            if (res.ok) {
+                const dados = await res.json();
+                setAlunosLista(dados);
+            }
         } catch (err) {
-            console.error("Erro ao conectar com a API de alunos");
+            console.error("Erro ao buscar alunos:", err);
         }
     };
 
-    // REQUISITOR: Busca as questões do arquivo público questoes.json
-    const buscarQuestoes = async () => {
-        try {
-            const res = await fetch('/questoes.json?t=' + new Date().getTime());
-            const dados = await res.json();
-            setQuestoes(dados);
-        } catch (err) {
-            console.error("Erro ao carregar o banco de questões.");
-        }
-    };
-
-    // AÇÃO: Cadastrar Aluno no MongoDB
+    // AÇÃO: Cadastrar Aluno com Vínculo Real à Turma do DER
     const cadastrarAluno = async (e) => {
         e.preventDefault();
         if (!nomeAluno || !userAluno) {
@@ -53,13 +53,22 @@ export default function AdminView() {
         }
 
         try {
+            // Busca a ID correspondente à string da turma selecionada
+            const turmaObjeto = t_lista.find(t => t.nome === turmaSelecionada);
+            const turmaIdFinal = turmaObjeto ? turmaObjeto._id : undefined;
+
             const res = await fetch(`${BASE_URL}/alunos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ usuario: userAluno, nome: nomeAluno, turma: turmaSelecionada })
+                body: JSON.stringify({ 
+                    usuario: userAluno, 
+                    nome: nomeAluno, 
+                    senha: '123', // Padrão inicial do laboratório
+                    turma_id: turmaIdFinal // Passa o ID relacional do NoSQL
+                })
             });
             if (res.ok) {
-                setMsg({ txt: '🎉 Aluno cadastrado com sucesso no MongoDB!', tipo: 'success' });
+                setMsg({ txt: '🎉 Aluno cadastrado e vinculado com sucesso no MongoDB!', tipo: 'success' });
                 setNomeAluno('');
                 setUserAluno('');
                 buscarAlunos();
@@ -72,208 +81,109 @@ export default function AdminView() {
         }
     };
 
-    // AÇÃO: Ativar Nova Turma
+    // AÇÃO: Criar Turma Real na Coleção 'turmas'
     const criarTurma = async (e) => {
         e.preventDefault();
         if (!novaTurmaNome) return;
         try {
-            const res = await fetch(`${BASE_URL}/alunos`, {
+            const res = await fetch(`${BASE_URL}/turmas`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    usuario: `sistema.${Math.random().toString(36).substr(2, 4)}`, 
-                    nome: "Inicializador da Turma", 
-                    turma: novaTurmaNome 
+                    nome: novaTurmaNome, 
+                    professor_id: professor?._id || "65f1a2b3c4d5e6f7a8b9c0d1" // ID dinâmico do professor logado
                 })
             });
             if (res.ok) {
-                setMsg({ txt: `🎉 Turma '${novaTurmaNome}' ativada com sucesso!`, tipo: 'success' });
+                setMsg({ txt: `🎉 Turma '${novaTurmaNome}' salva no MongoDB com sucesso!`, tipo: 'success' });
                 setNovaTurmaNome('');
-                buscarAlunos();
+                buscarTurmas(); // Atualiza a lista local sem precisar recarregar a página inteira
             }
         } catch (e) {
             setMsg({ txt: 'Erro ao gerar turma.', tipo: 'error' });
         }
     };
 
-    // AÇÃO: Adicionar Questão no estado local do Painel
-    const adicionarQuestao = (e) => {
-        e.preventDefault();
-        if (!novoEnunciado || !novaRespostaCerta) {
-            setMsg({ txt: '❌ Preencha o enunciado e o gabarito da questão.', tipo: 'error' });
-            return;
-        }
-
-        const novaQ = {
-            id: questaoIdAleatorio(),
-            enunciado: novoEnunciado,
-            resposta_correta: Number(novaRespostaCerta)
-        };
-
-        setQuestoes([...questoes, novaQ]);
-        setNovoEnunciado('');
-        setNovaRespostaCerta('');
-        setMsg({ txt: '🎉 Questão adicionada temporariamente ao painel! (Nota técnica: para persistência completa, configure um Model de Questões no Mongo).', tipo: 'success' });
-    };
-
-    // AÇÃO: Remover Questão da listagem
-    const deletarQuestao = (id) => {
-        if (confirm("Deseja remover esta questão permanentemente do painel visual?")) {
-            setQuestoes(questoes.filter(q => q.id !== id));
-            setMsg({ txt: '🗑️ Questão removida da visualização.', tipo: 'success' });
-        }
-    };
-
-    const questaoIdAleatorio = () => Math.floor(Math.random() * 10000);
-
-    const logout = () => {
-        localStorage.clear();
-        navigate('/');
-    };
-
-    const turmasUnicas = [...new Set(alunos.map(a => a.turma))];
-    if (!turmasUnicas.includes("8º Ano A")) turmasUnicas.push("8º Ano A");
-    if (!turmasUnicas.includes("8º Ano B")) turmasUnicas.push("8º Ano B");
-
     return (
-        <div>
-            <header>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1100px', margin: '0 auto', width: '100%', padding: '0 1rem' }}>
-                    <div style={{ textAlign: 'left' }}>
-                        <h1>GeoMatrix - Painel do Professor</h1>
-                        <p>Gerenciamento do AVA (Questões, Turmas e Relatórios NoSQL)</p>
-                    </div>
-                    <button onClick={logout} style={{ background: '#FF4D4D', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Sair do Painel</button>
+        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #E2E8F0', paddingBottom: '1rem', marginBottom: '2rem' }}>
+                <div>
+                    <h1 style={{ margin: 0, color: '#1A2B4C' }}>Painel do Docente — GeoMatrix</h1>
+                    <p style={{ margin: '5px 0 0 0', color: '#718096' }}>Gerenciamento de Turmas e Alunos Vinculados</p>
                 </div>
+                <button onClick={onLogout} style={{ background: '#FF4D4D', color: '#FFF', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Sair do Painel</button>
             </header>
 
-            <div className="admin-container" style={{ maxWidth: '1100px', margin: '2rem auto', padding: '0 1rem' }}>
-                <div className="nav-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                    <button className={`nav-btn ${aba === 'questoes' ? 'active' : ''}`} onClick={() => setAba('questoes')}>Gerenciar Questões</button>
-                    <button className={`nav-btn ${aba === 'turmas' ? 'active' : ''}`} onClick={() => setAba('turmas')}>Turmas & Relatórios</button>
+            {msg.txt && (
+                <div style={{ padding: '12px', borderRadius: '6px', backgroundColor: msg.tipo === 'success' ? '#C6F6D5' : '#FED7D7', color: msg.tipo === 'success' ? '#22543D' : '#742A2A', marginBottom: '1.5rem', fontWeight: 'bold' }}>
+                    {msg.txt}
+                </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                {/* Coluna 1: Criar Turma */}
+                <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ marginTop: 0, color: '#2D3748' }}>🏫 Adicionar Nova Turma</h3>
+                    <form onSubmit={criarTurma} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nome da Turma:</label>
+                            <input type="text" value={novaTurmaNome} onChange={(e) => setNovaTurmaNome(e.target.value)} placeholder="Ex: 8º Ano B" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }} required />
+                        </div>
+                        <button type="submit" style={{ background: '#3182CE', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Turma no Banco</button>
+                    </form>
+
+                    <h4 style={{ marginBottom: '10px', marginTop: '2rem' }}>Turmas Ativas no MongoDB:</h4>
+                    <ul style={{ paddingLeft: '20px', color: '#4A5568' }}>
+                        {t_lista.map((t) => <li key={t._id}><strong>{t.nome}</strong></li>)}
+                    </ul>
                 </div>
 
-                {msg.txt && <div className={`feedback-box feedback-${msg.tipo}`} style={{ display: 'block', marginBottom: '1.5rem' }}>{msg.txt}</div>}
-
-                {aba === 'questoes' ? (
-                    <div>
-                        {/* FORMULÁRIO DE CADASTRO DE QUESTÕES */}
-                        <div className="panel">
-                            <h2>Cadastrar Nova Questão (Matemática 8º/9º Ano)</h2>
-                            <form onSubmit={adicionarQuestao}>
-                                <div className="form-row">
-                                    <div className="input-block">
-                                        <label>Enunciado da Questão (HTML permitido):</label>
-                                        <textarea 
-                                            value={novoEnunciado} 
-                                            onChange={(e) => setNovoEnunciado(e.target.value)} 
-                                            placeholder="Ex: <h2>Desafio:</h2> <p>Calcule o volume do prisma...</p>"
-                                            style={{ width: '100%', height: '100px', padding: '0.7rem', border: '2px solid #CBD5E0', borderRadius: '6px' }}
-                                        />
-                                    </div>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                                    <div className="input-block">
-                                        <label>Gabarito (Número Inteiro):</label>
-                                        <input type="number" value={novaRespostaCerta} onChange={(e) => setNovaRespostaCerta(e.target.value)} placeholder="Ex: 1280000" />
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                        <button type="submit" className="btn-success" style={{ width: '100%', height: '42px' }}>Salvar Nova Questão</button>
-                                    </div>
-                                </div>
-                            </form>
+                {/* Coluna 2: Cadastrar Aluno */}
+                <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{ marginTop: 0, color: '#2D3748' }}>🎓 Matricular Estudante</h3>
+                    <form onSubmit={cadastrarAluno} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nome Completo do Aluno:</label>
+                            <input type="text" value={nomeAluno} onChange={(e) => setNomeAluno(e.target.value)} placeholder="Ex: Jean Bertrand" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }} required />
                         </div>
-
-                        {/* TABELA DE QUESTÕES ATUAIS (PROVINDAS DO QUESTOES.JSON) */}
-                        <div className="panel" style={{ marginTop: '2rem' }}>
-                            <h2>Questões Atuais no Banco de Dados Estático</h2>
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: '#1A2B4C', color: 'white' }}>
-                                            <th style={{ padding: '1rem', textAlign: 'left' }}>Enunciado (Visualização do Código)</th>
-                                            <th style={{ padding: '1rem', textAlign: 'left', width: '150px' }}>Gabarito</th>
-                                            <th style={{ padding: '1rem', textAlign: 'left', width: '100px' }}>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {questoes.length === 0 ? (
-                                            <tr><td colSpan="3" style={{ padding: '1rem' }}>Nenhuma questão localizada no arquivo público.</td></tr>
-                                        ) : (
-                                            questoes.map(q => (
-                                                <tr key={q.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                                                    <td style={{ padding: '1rem', fontSize: '0.9rem' }} dangerouslySetInnerHTML={{ __html: q.enunciado }}></td>
-                                                    <td style={{ padding: '1rem' }}><strong>{q.resposta_correta}</strong></td>
-                                                    <td style={{ padding: '1rem' }}>
-                                                        <button className="btn-danger" onClick={() => deletarQuestao(q.id)} style={{ background: '#E74C3C', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>Excluir</button>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Login de Usuário:</label>
+                            <input type="text" value={userAluno} onChange={(e) => setUserAluno(e.target.value || e.target.value)} placeholder="Ex: jean.bertrand" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }} required />
                         </div>
-                    </div>
-                ) : (
-                    <div>
-                        {/* SEÇÃO DE TURMAS E ALUNOS (MANTIDA IDÊNTICA) */}
-                        <div className="grid-forms" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            <div className="panel">
-                                <h2>Nova Turma</h2>
-                                <input type="text" value={novaTurmaNome} onChange={(e) => setNovaTurmaNome(e.target.value)} placeholder="Ex: 8º Ano C - Tarde" />
-                                <button onClick={criarTurma} className="btn-success" style={{ width: '100%', marginTop: '1.5rem' }}>Criar Turma</button>
-                            </div>
-
-                            <div className="panel">
-                                <h2>Vincular Aluno à Turma</h2>
-                                <label>Selecione a Turma:</label>
-                                <select value={turmaSelecionada} onChange={(e) => setTurmaSelecionada(e.target.value)} style={{ width: '100%', padding: '0.6rem', border: '2px solid #CBD5E0', borderRadius: '6px' }}>
-                                    {turmasUnicas.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                                    <input type="text" value={nomeAluno} onChange={(e) => setNomeAluno(e.target.value)} placeholder="Nome Completo" />
-                                    <input type="text" value={userAluno} onChange={(e) => setUserAluno(e.target.value)} placeholder="Login (Ex: jean)" />
-                                </div>
-                                <button onClick={cadastrarAluno} className="btn-success" style={{ width: '100%', marginTop: '1.2rem' }}>Matricular Aluno</button>
-                            </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Selecionar Turma Relacional:</label>
+                            <select value={turmaSelecionada} onChange={(e) => setTurmaSelecionada(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }}>
+                                {t_lista.map((t) => <option key={t._id} value={t.nome}>{t.nome}</option>)}
+                            </select>
                         </div>
+                        <button type="submit" style={{ background: '#38A169', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Efetuar Matrícula</button>
+                    </form>
+                </div>
+            </div>
 
-                        <div className="panel" style={{ marginTop: '2rem' }}>
-                            <h2>Relatório de Desempenho por Turma (MongoDB)</h2>
-                            {turmasUnicas.sort().map(nomeTurma => {
-                                const filtrados = alunos.filter(a => a.turma === nomeTurma && !a.usuario.startsWith('sistema.'));
-                                return (
-                                    <div key={nomeTurma} className="turma-card" style={{ background: '#F7FAFC', border: '1px solid #E2E8F0', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-                                        <h3>🏫 {nomeTurma}</h3>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-                                            <thead>
-                                                <tr style={{ backgroundColor: '#1A2B4C', color: 'white' }}>
-                                                    <th style={{ padding: '1rem', textAlign: 'left' }}>Nome do Aluno</th>
-                                                    <th style={{ padding: '1rem', textAlign: 'left' }}>Desafios Feitos</th>
-                                                    <th style={{ padding: '1rem', textAlign: 'left' }}>Pontuação Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {filtrados.length === 0 ? (
-                                                    <tr><td colSpan="3" style={{ padding: '1rem' }}>Nenum aluno matriculado nesta turma.</td></tr>
-                                                ) : (
-                                                    filtrados.map(a => (
-                                                        <tr key={a._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                                                            <td style={{ padding: '1rem' }}>{a.nome} (<em>@{a.usuario}</em>)</td>
-                                                            <td style={{ padding: '1rem' }}><strong>{a.desafios_concluidos}</strong></td>
-                                                            <td style={{ padding: '1rem' }}><span style={{ color: '#B7791F', fontWeight: 'bold' }}>{a.pontuacao} pts</span></td>
-                                                        </tr>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+            {/* Lista Geral de Alunos Cadastrados no rodapé */}
+            <div style={{ marginTop: '3rem', background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                <h3 style={{ marginTop: 0, color: '#2D3748' }}>📋 Lista Geral de Alunos Matriculados</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                    <thead>
+                        <tr style={{ backgroundColor: '#EDF2F7', textAlign: 'left' }}>
+                            <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Nome do Aluno</th>
+                            <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Usuário</th>
+                            <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Turma Vinculada</th>
+                            <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Pontuação Acumulada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {alunosLista.map((aluno) => (
+                            <tr key={aluno._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                                <td style={{ padding: '12px' }}>{aluno.nome}</td>
+                                <td style={{ padding: '12px' }}>{aluno.usuario}</td>
+                                <td style={{ padding: '12px' }}>{aluno.turma_id?.nome || 'Sem vínculo'}</td>
+                                <td style={{ padding: '12px', fontWeight: 'bold', color: '#3182CE' }}>{aluno.pontuacao || 0} XP</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
