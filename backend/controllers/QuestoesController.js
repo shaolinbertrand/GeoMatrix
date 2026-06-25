@@ -36,20 +36,20 @@ exports.obterProximaQuestaoAdaptativa = async (req, res) => {
     const mapaDificuldade = { 1: 'fácil', 2: 'médio', 3: 'difícil' };
     const dificuldadeAlvo = mapaDificuldade[progresso.nivelAtual];
 
-    // Query Adaptativa: Procura uma questão contida nos assuntos ativos,
-    // na dificuldade calculada pela IA e que o aluno ainda NÃO respondeu.
+    // 🎯 Query Adaptativa: Procura uma questão contida nos assuntos ativos,
+    // na dificuldade calculada pela IA e que o aluno ainda NÃO respondeu (Filtro por 'numero').
     let questao = await Questao.findOne({
       assunto: { $in: turma.assuntosAtivos },
       dificuldade: dificuldadeAlvo,
-      id: { $nin: progresso.questoesRespondidas }
+      numero: { $nin: progresso.questoesRespondidas } // ✅ Corrigido de 'id' para 'numero'
     });
 
     // Fallback de Segurança: Se as questões da dificuldade exata acabarem,
-    // varre o banco buscando qualquer questão restante dos temas ativos para evitar tela em branco.
+    // varre o banco buscando qualquer questão restante dos temas ativos (Filtro por 'numero').
     if (!questao) {
       questao = await Questao.findOne({
         assunto: { $in: turma.assuntosAtivos },
-        id: { $nin: progresso.questoesRespondidas }
+        numero: { $nin: progresso.questoesRespondidas } // ✅ Corrigido de 'id' para 'numero'
       });
     }
 
@@ -65,8 +65,8 @@ exports.obterProximaQuestaoAdaptativa = async (req, res) => {
     return res.json({
       concluido: false,
       questao: {
-        numero: questao.numero,
-        id:questao.id,
+        id: questao._id, // ✅ Incluído explicitamente para o SimuladorView poder usar no POST de submissão
+        numero: questao.numero, // ✅ Identificador sequencial exibido na tela
         categoria: questao.categoria,
         assunto: questao.assunto,
         dificuldade: questao.dificuldade,
@@ -97,7 +97,7 @@ exports.submeterRespostaQuestao = async (req, res) => {
     }
 
     // Localiza a questão original no banco para extrair o gabarito correto
-    const questaoOriginal = await Questao.findOne({ _id: questaoId });
+    const questaoOriginal = await Questao.findById(questaoId);
     if (!questaoOriginal) {
       return res.status(404).json({ error: "Questão não localizada no banco de dados." });
     }
@@ -115,18 +115,36 @@ exports.submeterRespostaQuestao = async (req, res) => {
       progresso = await ProgressoAluno.create({ aluno: alunoId, assunto: chaveEstudo, nivelAtual: 2 });
     }
 
-    let acertou = false;
+   let acertou = false;
 
-    // Lógica de Correção com base no tipo de questão
+    // Lógica de Correção Avançada com base no tipo de questão
     if (questaoOriginal.tipo === 'objetiva') {
       // Extrai apenas a letra inicial (ex: "c") para evitar divergências por pequenos espaços
       const letraGabarito = questaoOriginal.gabarito.trim().charAt(0).toLowerCase();
       const letraResposta = respostaAluno.trim().charAt(0).toLowerCase();
       acertou = (letraGabarito === letraResposta);
     } else {
-      // Para questões discursivas, a resposta vai para avaliação do professor no futuro.
-      // Por padrão adaptativo rápido, consideramos aceito para avanço ou mantemos neutro.
-      acertou = true; 
+      // ✅ MELHORIA: Limpa a resposta do aluno mantendo apenas os números
+      const apenasNumerosAluno = respostaAluno.replace(/\D/g, '');
+      
+      // 1. Se o professor cadastrou um valor numérico exato no campo 'resposta_correta'
+      if (questaoOriginal.resposta_correta !== undefined && questaoOriginal.resposta_correta !== null) {
+        const valorEsperado = questaoOriginal.resposta_correta.toString();
+        acertou = (apenasNumerosAluno === valorEsperado);
+      } else {
+        // 2. Fallback caso não tenha 'resposta_correta' preenchida: busca o último número isolado do gabarito
+        const numerosNoGabarito = questaoOriginal.gabarito.match(/\d+/g); // Pega todos os números do texto
+        if (numerosNoGabarito && numerosNoGabarito.length > 0) {
+          // Pega o último número do texto (que geralmente é a resposta final, ex: "8000")
+          const ultimoNumeroGabarito = numerosNoGabarito[numerosNoGabarito.length - 1];
+          acertou = apenasNumerosAluno.includes(ultimoNumeroGabarito);
+        } else {
+          // Se não houver números claros, faz a comparação por texto limpo
+          const respostaLimpa = respostaAluno.trim().replace(/\s+/g, '').toLowerCase();
+          const gabaritoLimpo = questaoOriginal.gabarito.trim().replace(/\s+/g, '').toLowerCase();
+          acertou = (respostaLimpa === gabaritoLimpo);
+        }
+      }
     }
 
     // MOTOR DE INTEGRAÇÃO ADAPTATIVA (IA):
@@ -139,8 +157,8 @@ exports.submeterRespostaQuestao = async (req, res) => {
     }
 
     // Adiciona o ID da questão atual no histórico de respondidas para não repeti-la
-    if (!progresso.questoesRespondidas.includes(questaoId)) {
-      progresso.questoesRespondidas.push(questaoId);
+    if (!progresso.questoesRespondidas.includes(questaoOriginal.numero)) {
+      progresso.questoesRespondidas.push(questaoOriginal.numero);
     }
 
     // Salva as alterações de proficiência e histórico no MongoDB
