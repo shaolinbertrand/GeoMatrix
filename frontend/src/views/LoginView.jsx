@@ -28,6 +28,8 @@ export default function LoginView() {
             const dados = await response.json();
 
             if (response.ok) {
+                // 🎯 GRAVAÇÃO DO TOKEN JWT: Fundamental para autenticar nas rotas protegidas da IA
+                localStorage.setItem('geomatrix_token', dados.token);
                 localStorage.setItem('session_role', dados.role);
                 localStorage.setItem('session_name', dados.nome);
                 
@@ -39,6 +41,13 @@ export default function LoginView() {
                     // Mantém o mapeamento relacional clássico do Aluno
                     localStorage.setItem('session_id', dados._id);
                     localStorage.setItem('session_turma', dados.turma_id?.nome || 'Sem Turma');
+                    
+                    // 🎯 GRAVAÇÃO DO ID DA TURMA: Mapeia a turma do aluno para o motor adaptativo de IA
+                    // Captura tanto o formato populado (dados.turma_id._id) quanto o ID direto (dados.turmaId)
+                    const idTurma = dados.turmaId || dados.turma_id?._id || '';
+                    localStorage.setItem('geomatrix_turmaId', idTurma);
+                    
+                    // Redireciona o aluno para a tela da atividade adaptativa do GeoMatrix
                     navigate('/simulador');
                 }
             } else {

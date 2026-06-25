@@ -5,43 +5,53 @@ const router = express.Router();
 const alunoController = require('../controllers/AlunoController');
 const turmaController = require('../controllers/TurmaController');
 const professorController = require('../controllers/ProfessorController');
+const questoesController = require('../controllers/QuestoesController');
+
+// 2. IMPORTAÇÃO DO MIDDLEWARE DE AUTENTICAÇÃO
+const autenticarToken = require('../middlewares/autenticarToken');
 
 // ==========================================
-// 🎓 ROTAS DE ALUNOS & AUTENTICAÇÃO (Suas rotas originais)
+// 🎓 ROTAS DE ALUNOS & AUTENTICAÇÃO (Públicas)
 // ==========================================
 router.post('/login', alunoController.executarLogin);
 router.post('/alunos', alunoController.cadastrarAluno);
 router.get('/alunos', alunoController.listarAlunos);
-router.put('/salvar-progresso', alunoController.atualizarProgresso);
-
 
 // ==========================================
-// 🏫 ROTAS DE TURMAS (Novas: Painel do Professor)
-// ==========================================
-
-// Rota para o professor criar uma nova turma no MongoDB (POST)
-router.post('/turmas', turmaController.criarTurma);
-
-// Rota para listar as turmas no <select> do React (GET)
-router.get('/turmas', turmaController.listarTurmas);
-
-
-// ==========================================
-// 🧠 ROTAS ADAPTATIVAS / VÍNCULOS
-// ==========================================
-
-// Rota para o professor vincular um aluno a uma turma específica (PUT)
-router.put('/alunos/vincular-turma', alunoController.vincularAlunoATurma);
-
-// Rota opcional para o fluxo da IA (se você preferir separar a verificação estática da adaptativa)
-// router.put('/verificar-resposta', alunoController.verificarResposta);
-// ==========================================
-// 🧠 ROTAS PROFESSOR 
+// 🧠 ROTAS DE PROFESSOR (Cadastro e Login Públicos)
 // ==========================================
 router.post('/professor', professorController.cadastrarProfessor);
-// 🎯 Nova rota de Login específica para Professores
 router.post('/login-professor', professorController.executarLoginProfessor);
-// 🎯 Endpoint unificado para carga em lote ou inserção individual de questões
-router.post('/questoes/gerenciar', professorController.gerenciarBancoQuestoes);
+
+
+// ==========================================
+// 🔒 ROTAS PROTEGIDAS (Exigem Autenticação)
+// ==========================================
+
+// --- Aluno ---
+// Rota para o aluno salvar o progresso geral
+router.put('/salvar-progresso', autenticarToken, alunoController.atualizarProgresso);
+
+// Rota adaptativa para recuperar a próxima questão estruturada pela IA
+router.get('/proxima', autenticarToken, questoesController.obterProximaQuestaoAdaptativa);
+
+// Rota para submeter, corrigir e computar a pontuação adaptativa
+router.post('/submeter', autenticarToken, questoesController.submeterRespostaQuestao);
+
+
+// --- Professor / Turmas ---
+// Rota para o professor criar uma nova turma no MongoDB
+router.post('/turmas', autenticarToken, turmaController.criarTurma);
+
+// Rota para listar as turmas no <select> do React
+router.get('/turmas', autenticarToken, turmaController.listarTurmas);
+
+// Rota para o professor vincular um aluno a uma turma específica
+router.put('/alunos/vincular-turma', autenticarToken, alunoController.vincularAlunoATurma);
+
+// Endpoint unificado para carga em lote ou inserção individual de questões
+router.post('/questoes/gerenciar', autenticarToken, professorController.gerenciarBancoQuestoes);
+// Rota para listar todos os assuntos únicos que possuem questões cadastradas
+router.get('/questoes/assuntos', autenticarToken, professorController.listarAssuntosDisponiveis);
 
 module.exports = router;

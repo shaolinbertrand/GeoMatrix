@@ -1,9 +1,13 @@
 const Turma = require('../models/Turma');
 
 const criarTurma = async (req, res) => {
-  const { nome, periodo, professor_id } = req.body;
+  // 🎯 Captura tanto os novos campos quanto mantém suporte aos mapeamentos antigos
+  const { nome, periodo, professor, professor_id, assuntosAtivos } = req.body;
 
-  if (!nome || !professor_id) {
+  // Define o ID final do professor priorizando o campo correto exigido pelo Schema
+  const idProfessorFinal = professor || professor_id;
+
+  if (!nome || !idProfessorFinal) {
     return res.status(400).json({ error: 'Nome da turma e ID do professor são obrigatórios.' });
   }
 
@@ -13,10 +17,12 @@ const criarTurma = async (req, res) => {
       return res.status(400).json({ error: 'Uma turma com este nome já está cadastrada.' });
     }
 
+    // 🎯 Instancia a turma mapeando os campos exatos do novo Schema do Mongoose
     const novaTurma = new Turma({
       nome,
       periodo,
-      professor_id
+      professor: idProfessorFinal, // Atribui ao campo exigido pelo Schema relacional
+      assuntosAtivos: assuntosAtivos || [] // Inicializa a trilha da IA adaptativa
     });
 
     await novaTurma.save();
@@ -30,14 +36,15 @@ const criarTurma = async (req, res) => {
 
 const listarTurmas = async (req, res) => {
   try {
-    const turmas = await Turma.find().populate('professor_id', 'nome');
+    // Atualizado para popular o campo correto 'professor'
+    const turmas = await Turma.find().populate('professor', 'nome');
     return res.status(200).json(turmas);
   } catch (error) {
+    console.error('Erro ao listar turmas:', error);
     return res.status(500).json({ error: 'Erro ao listar turmas.' });
   }
 };
 
-// Exportação limpa e explícita que o api.js vai ler perfeitamente
 module.exports = {
   criarTurma,
   listarTurmas

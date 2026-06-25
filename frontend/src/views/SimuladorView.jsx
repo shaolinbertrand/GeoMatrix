@@ -1,160 +1,235 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { verificarRespostaIA, listarAlunos } from '../api';
-import MotorGeometrico from '../components/MotorGeometrico';
+import { BASE_URL } from '../api';
 
 export default function SimuladorView() {
-    const [desafios, setDesafios] = useState([]);
-    const [indexAtual, setIndexAtual] = useState(0);
-    const [questaoAtual, setQuestaoAtual] = useState(null); 
-    const [pontuacao, setPontuacao] = useState(0);
-    const [respostaAluno, setRespostaAluno] = useState('');
-    const [feedback, setFeedback] = useState({ msg: '', tipo: '' });
-
-    const [largura, setLargura] = useState(160);
-    const [altura, setAltura] = useState(100);
-    const [profundidade, setProfundidade] = useState(80);
+    const [carregando, setCarregando] = useState(true);
+    const [atividadeConcluida, setAtividadeConcluida] = useState(false);
+    const [mensagemFim, setMensagemFim] = useState('');
+    
+    // Dados da questão atual entregue pela IA
+    const [questao, setQuestao] = useState(null);
+    
+    // Controle de resposta do aluno
+    const [opcaoSelecionada, setOpcaoSelecionada] = useState('');
+    const [respostaDiscursiva, setRespostaDiscursiva] = useState('');
+    
+    // Feedback pós-envio
+    const [respondido, setRespondido] = useState(false);
+    const [resultado, setResultado] = useState({ acertou: false, gabaritoOficial: '' });
 
     const navigate = useNavigate();
-    const alunoId = localStorage.getItem('session_id');
-    const alunoNome = localStorage.getItem('session_name');
+    const token = localStorage.getItem('geomatrix_token');
+    const nomeTurma = localStorage.getItem('session_turma');
 
-    useEffect(() => {
-        inicializarSimulador();
-    }, []);
-
-    const inicializarSimulador = async () => {
-        try {
-            const alunos = await listarAlunos();
-            const logado = alunos.find(a => String(a._id) === String(alunoId));
-            if (logado) {
-                setPontuacao(logado.pontuacao || 0);
-                setIndexAtual(logado.desafios_concluidos || 0);
-            }
-        } catch (e) { 
-            console.warn("Modo sandbox ativado."); 
-        }
-
-        try {
-            const resQ = await fetch('/questoes.json');
-            const questoes = await resQ.json();
-            setDesafios(questoes);
-            setQuestaoAtual(questoes[indexAtual] || questoes[0]);
-        } catch (e) { 
-            console.error("Erro ao ler banco de questões."); 
-        }
-    };
-
-    const handleVerificarResposta = async () => {
-        if (!questaoAtual) return;
+    // 1. BUSCA A QUESTÃO ADAPTATIVA DA IA
+    const buscarProximaQuestao = async () => {
+        setCarregando(true);
+        setRespondido(false);
+        setOpcaoSelecionada('');
+        setRespostaDiscursiva('');
         
         try {
-            // CORREÇÃO: Garante o envio do identificador correto indiferente da origem (Mongoose ID ou JSON id)
-            const idParaEnvio = questaoAtual._id || questaoAtual.id || indexAtual;
-            const dados = await verificarRespostaIA(alunoId, idParaEnvio, respostaAluno);
-
-            if (dados.status === 'sucesso') {
-                setFeedback({ msg: '✅ Resposta correta! +10 XP arrecadados.', tipo: 'success' });
-                setPontuacao(prev => prev + 10);
-                const proximoIndex = indexAtual + 1;
-                setIndexAtual(proximoIndex);
-                setQuestaoAtual(desafios[proximoIndex]);
-                setRespostaAluno('');
-            } else {
-                setFeedback({ 
-                    msg: '❌ Resposta incorreta. O cérebro do GeoMatrix detectou sua dificuldade e recalibrou sua rota!', 
-                    tipo: 'error' 
-                });
-                
-                if (dados.proximaQuestao) {
-                    setQuestaoAtual(dados.proximaQuestao);
+            const response = await fetch(`${BASE_URL}/proxima`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-                setRespostaAluno('');
+            });
+            const dados = await response.json();
+
+            if (response.status === 401 || response.status === 403) {
+                executarLogout();
+                return;
+            }
+
+            if (dados.concluido) {
+                setAtividadeConcluida(true);
+                setMensagemFim(dados.message);
+            } else {
+                setQuestao(dados.questao);
             }
         } catch (err) {
-            setFeedback({ msg: 'Erro ao processar resposta no servidor.', tipo: 'error' });
+            console.error("Erro ao buscar próxima questão:", err);
+        } finally {
+            setCarregando(false);
         }
     };
 
-    const logout = () => {
+    useEffect(() => {
+        if (!token) {
+            navigate('/');
+            return;
+        }
+        buscarProximaQuestao();
+    }, []);
+
+    // 2. SUBMETE A RESPOSTA PARA O BACK-END VALIDAR
+    const enviarResposta = async (e) => {
+        e.preventDefault();
+
+        const respostaFinal = questao?.tipo === 'objetiva' ? opcaoSelecionada : respostaDiscursiva;
+
+        if (!respostaFinal) {
+            alert("Por favor, selecione ou escreva uma resposta antes de enviar.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/submeter`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    // 🎯 CORRIGIDO: Envia o _id do MongoDB para validação no back-end
+                    questaoId: questao?.id,
+                    respostaAluno: respostaFinal
+                })
+            });
+            const dados = await response.json();
+
+            if (response.ok) {
+                setRespondido(true);
+                setResultado({
+                    acertou: dados.acertou,
+                    gabaritoOficial: dados.gabaritoOficial
+                });
+            } else {
+                alert(dados.error || "Erro ao processar resposta.");
+            }
+        } catch (err) {
+            console.error("Erro ao submeter resposta:", err);
+        }
+    };
+
+    // 3. LOGOUT E LIMPEZA DE SESSÃO
+    const executarLogout = () => {
         localStorage.clear();
         navigate('/');
     };
 
-    const volumeTotal = largura * altura * profundidade;
+    if (carregando) return <div className="loading-box">Carregando sua próxima trilha no GeoMatrix...</div>;
+
+    if (atividadeConcluida) {
+        return (
+            <div className="simulador-container">
+                <div className="panel text-center">
+                    <h2>Atividade Concluída!</h2>
+                    <p style={{ margin: '1.5rem 0', fontSize: '1.2rem' }}>{mensagemFim}</p>
+                    <button className="btn-login" onClick={executarLogout}>Sair do Sistema</button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div style={{ backgroundColor: '#F7FAFC', minHeight: '100vh' }}>
-            <header>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 1rem' }}>
-                    <div style={{ textAlign: 'left' }}>
-                        <h1 style={{ margin: 0, fontSize: '1.8rem' }}>GeoMatrix</h1>
-                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', opacity: 0.8 }}>Ambiente Virtual de Aprendizagem Adaptativo</p>
+        <div className="simulador-container" style={{ padding: '2rem' }}>
+            <div className="panel" style={{ maxWidth: '800px', margin: '0 auto' }}>
+                
+                {/* Header Dinâmico */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
+                    <div>
+                        <span className="badge-turma" style={{ background: '#4A90E2', color: '#fff', padding: '0.3rem 0.8rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+                            {nomeTurma}
+                        </span>
+                        <h4 style={{ marginTop: '0.5rem', color: '#555' }}>Tópico: {questao?.assunto}</h4>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontWeight: 'bold', display: 'block' }}>👋 Olá, {alunoNome || 'Estudante'}!</span>
-                        <button onClick={logout} style={{ background: '#FF4D4D', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '0.3rem', fontWeight: 'bold' }}>Sair do Sistema</button>
-                    </div>
-                </div>
-            </header>
-
-            <div className="main-container">
-                <div className="panel">
-                    <h3 style={{ marginTop: 0, color: '#1A2B4C' }}>📐 Simulador Espacial Reativo</h3>
-                    <MotorGeometrico largura={largura} altura={altura} profundidade={profundidade} />
-                    <div className="control-group">
-                        <div className="input-block">
-                            <label>Largura (X)</label>
-                            <input type="number" value={largura} onChange={(e) => setLargura(Number(e.target.value))} />
-                        </div>
-                        <div className="input-block">
-                            <label>Altura (Y)</label>
-                            <input type="number" value={altura} onChange={(e) => setAltura(Number(e.target.value))} />
-                        </div>
-                        <div className="input-block">
-                            <label>Profundidade (Z)</label>
-                            <input type="number" value={profundidade} onChange={(e) => setProfundidade(Number(e.target.value))} />
-                        </div>
-                    </div>
-                    <div className="volume-display">Volume Praticado: {volumeTotal.toLocaleString()} u³.</div>
+                    <button className="btn-logout" onClick={executarLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>
+                        Sair
+                    </button>
                 </div>
 
-                <div className="panel">
-                    <div className="score-badge">Pontuação: {pontuacao} XP</div>
-                    
-                    <div className="enunciado-box" style={{ minHeight: '180px', border: '1px dashed #CBD5E0', padding: '1rem', borderRadius: '6px', backgroundColor: '#FFF', marginBottom: '1.5rem' }}>
-                        {questaoAtual ? (
-                            <div>
-                                <span style={{ fontSize: '11px', color: '#B7791F', fontWeight: 'bold' }}>FOCO ATUAL: {questaoAtual.conteudo || "Geometria Geral"}</span>
-                                <div dangerouslySetInnerHTML={{ __html: questaoAtual.enunciado }} />
+                {/* Card da Questão */}
+                <div className="questao-card">
+                    <p style={{ fontSize: '1.15rem', fontWeight: '500', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                        {/* 🎯 GARANTIDO: Renderiza o campo 'numero' atualizado */}
+                        <strong>Questão {questao?.numero}:</strong> {questao?.enunciado}
+                    </p>
+
+                    <form onSubmit={enviarResposta}>
+                        {/* Renderização Condicional por Tipo de Questão */}
+                        {questao?.tipo === 'objetiva' ? (
+                            <div className="opcoes-container" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                {questao?.opcoes?.map((opcao, idx) => (
+                                    <label 
+                                        key={idx} 
+                                        style={{ 
+                                            padding: '0.8rem', 
+                                            border: '1px solid #ccc', 
+                                            borderRadius: '6px', 
+                                            cursor: respondido ? 'not-allowed' : 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            background: opcaoSelecionada === opcao ? '#eef5fc' : '#fff'
+                                        }}
+                                    >
+                                        <input 
+                                            type="radio" 
+                                            name="opcao" 
+                                            value={opcao}
+                                            disabled={respondido}
+                                            checked={opcaoSelecionada === opcao}
+                                            onChange={(e) => setOpcaoSelecionada(e.target.value)}
+                                        />
+                                        {opcao}
+                                    </label>
+                                ))}
                             </div>
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '1rem' }}>
-                                <h2>🏆 Trilha Concluída!</h2>
-                                <p>Você concluiu com sucesso todos os desafios do GeoMatrix!</p>
+                            <div className="discursiva-container">
+                                <textarea 
+                                    rows="4" 
+                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #ccc', resize: 'vertical' }}
+                                    placeholder="Escreva sua resposta passo a passo aqui..."
+                                    value={respostaDiscursiva}
+                                    disabled={respondido}
+                                    onChange={(e) => setRespostaDiscursiva(e.target.value)}
+                                />
                             </div>
                         )}
-                    </div>
-                    
-                    {questaoAtual && (
-                        <div className="answer-block" style={{ display: 'flex', gap: '0.5rem' }}>
-                            <input 
-                                type="number" 
-                                value={respostaAluno} 
-                                onChange={(e) => setRespostaAluno(e.target.value)} 
-                                placeholder="Insira o valor numérico calculado..." 
-                                style={{ flex: 1, padding: '0.7rem', border: '2px solid #CBD5E0', borderRadius: '6px', fontSize: '1rem' }}
-                            />
-                            <button onClick={handleVerificarResposta} style={{ background: '#1A2B4C', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Enviar Gabarito</button>
-                        </div>
-                    )}
 
-                    {feedback.msg && (
-                        <div className={`feedback-box feedback-${feedback.tipo}`} style={{ display: 'block', marginTop: '1.5rem', padding: '0.8rem', borderRadius: '6px', fontWeight: '500' }}>
-                            {feedback.msg}
-                        </div>
-                    )}
+                        {/* Botões de Ação */}
+                        {!respondido ? (
+                            <button type="submit" className="btn-login" style={{ marginTop: '1.5rem', width: '100%' }}>
+                                Confirmar e Enviar Resposta
+                            </button>
+                        ) : (
+                            <button type="button" className="btn-login" onClick={buscarProximaQuestao} style={{ marginTop: '1.5rem', width: '100%', background: '#2ecc71' }}>
+                                Avançar para Próxima Questão (IA)
+                            </button>
+                        )}
+                    </form>
                 </div>
+
+                {/* Bloco de Feedback Adaptativo */}
+                {respondido && (
+                    <div 
+                        className={`feedback-box`} 
+                        style={{ 
+                            marginTop: '1.5rem', 
+                            padding: '1rem', 
+                            borderRadius: '6px', 
+                            background: resultado.acertou ? '#d4edda' : '#f8d7da',
+                            color: resultado.acertou ? '#155724' : '#721c24',
+                            border: `1px solid ${resultado.acertou ? '#c3e6cb' : '#f5c6cb'}`
+                        }}
+                    >
+                        <h5>{resultado.acertou ? "🎯 Excelente! Você acertou!" : "❌ Resposta Incorreta."}</h5>
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                            <strong>Solução/Gabarito:</strong> {resultado.gabaritoOficial}
+                        </p>
+                        <small style={{ display: 'block', marginTop: '0.5rem', color: '#555' }}>
+                            {resultado.acertou 
+                                ? "O motor de IA subiu sua proficiência. Prepare-se para um desafio maior!" 
+                                : "O GeoMatrix recalibrou sua trilha para te ajudar a fixar a base deste conteúdo."}
+                        </small>
+                    </div>
+                )}
+
             </div>
         </div>
     );

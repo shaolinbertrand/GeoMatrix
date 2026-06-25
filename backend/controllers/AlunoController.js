@@ -2,6 +2,8 @@ const MotorAdaptativo = require('../services/MotorIA');
 const Questao = require('../models/Questao');
 const Aluno = require('../models/Aluno');
 const Turma = require('../models/Turma');
+// 🎯 IMPORTAÇÃO DO JWT: Necessário para gerar o token no login
+const jwt = require('jsonwebtoken');
 
 // 1. EXECUTA O LOGIN REATIVO UNIFICADO
 const executarLogin = async (req, res) => {
@@ -12,8 +14,30 @@ const executarLogin = async (req, res) => {
     if (!aluno) {
       return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
     }
-    return res.status(200).json(aluno);
+
+    // 🎯 GERAÇÃO DO TOKEN JWT: Monta o payload com os IDs necessários para o motor de IA
+    const SECRET = process.env.JWT_SECRET || "SUA_CHAVE_SECRETA_AQUI";
+    const token = jwt.sign(
+      { 
+        id: aluno._id, 
+        turmaId: aluno.turma_id?._id || '' 
+      }, 
+      SECRET, 
+      { expiresIn: '24h' } // Token expira em 24 horas
+    );
+
+    // Retorna a estrutura completa esperada pelo front-end
+    return res.status(200).json({
+      token,
+      role: 'aluno',
+      nome: aluno.nome,
+      _id: aluno._id,
+      turmaId: aluno.turma_id?._id || '',
+      turma_id: aluno.turma_id // Mantém compatibilidade com o formato populado antigo
+    });
+
   } catch (err) {
+    console.error('Erro ao executar login:', err);
     return res.status(500).json({ error: 'Erro ao executar login.' });
   }
 };
@@ -111,13 +135,13 @@ const verificarResposta = async (req, res) => {
       // Atualiza o histórico como resolvido com sucesso
       await Aluno.findByIdAndUpdate(alunoId, {
         $inc: { pontuacao: 10, desafios_concluidos: 1 },
-        $push: { historico_desafios: { questao_id: questaoId, resolvido: true, tentativas: 1 } }
+        $push: { historico_desafios: { questao_id: questaoId, resolvido: true, tentatives: 1 } }
       });
 
       return res.status(200).json({ status: 'sucesso', msg: 'Resposta correta!' });
     } 
 
-    // SE O ALUNO ERROU: Aciona instantaneamente a Camada de IA (Passo a Passo do diagrama)
+    // SE O ALUNO ERROU: Aciona instantaneamente a Camada de IA
     await MotorAdaptativo.processarErro(alunoId, questaoId);
 
     // IA intercepta o fluxo e busca a próxima recomendação baseada na falha
@@ -126,7 +150,7 @@ const verificarResposta = async (req, res) => {
     return res.status(200).json({ 
       status: 'erro', 
       msg: 'Resposta incorreta. O GeoMatrix adaptou a sua trilha!',
-      proximaQuestao: proximoDesafioPersonalizado // O React recebe a questão adaptada na hora!
+      proximaQuestao: proximoDesafioPersonalizado 
     });
 
   } catch (err) {
@@ -135,9 +159,6 @@ const verificarResposta = async (req, res) => {
   }
 };
 
-// =========================================================================
-// EXPORTAÇÃO UNIFICADA DAS FUNÇÕES (Garante compatibilidade total com o api.js)
-// =========================================================================
 module.exports = {
   executarLogin,
   cadastrarAluno,

@@ -1,5 +1,7 @@
 const Professor = require('../models/Professor');
 const QuestaoModel = require('../models/Questao');
+// 🎯 IMPORTAÇÃO DO JWT: Necessário para gerar o token de segurança do docente
+const jwt = require('jsonwebtoken');
 
 // ROTA ANTERIOR: Cadastro de Professor
 const cadastrarProfessor = async (req, res) => {
@@ -21,11 +23,12 @@ const cadastrarProfessor = async (req, res) => {
 };
 
 // ==========================================
-// 🚀 NOVA ROTA: LOGIN EXCLUSIVO DO PROFESSOR
+// 🚀 NOVA ROTA: LOGIN EXCLUSIVO DO PROFESSOR (Atualizada com JWT)
 // ==========================================
 const executarLoginProfessor = async (req, res) => {
   const { usuario, senha } = req.body;
-    console.log("entrou no login com usuario: ",usuario,"e senha: ",senha)
+  console.log("Entrou no login docente com usuario:", usuario);
+  
   if (!usuario || !senha) {
     return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
   }
@@ -38,12 +41,25 @@ const executarLoginProfessor = async (req, res) => {
       return res.status(401).json({ error: 'Usuário ou senha incorretos para o painel docente.' });
     }
 
-    // Retorna os dados do professor de forma idêntica ao que o front-end espera
+    // 🎯 GERAÇÃO DO TOKEN JWT DO PROFESSOR:
+    // Mapeamos o ID e o papel de professor para validação posterior dos middlewares
+    const SECRET = process.env.JWT_SECRET || "SUA_CHAVE_SECRETA_AQUI";
+    const token = jwt.sign(
+      { 
+        id: professor._id, 
+        role: 'professor' 
+      }, 
+      SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    // Retorna os dados do professor incluindo o Token gerado
     return res.status(200).json({
+      token, // 🎯 Enviado com sucesso para o LoginView.jsx capturar!
       _id: professor._id,
       nome: professor.nome,
       usuario: professor.usuario,
-      role: professor.role // Retorna 'professor' para o App.jsx fazer o desvio de tela
+      role: professor.role // Mantém o 'professor' para o desvio de tela no React
     });
 
   } catch (err) {
@@ -65,8 +81,7 @@ const gerenciarBancoQuestoes = async (req, res) => {
   try {
     // CASO A: Se receber um ARRAY (Carga em lote das 100 questões)
     if (Array.isArray(dados)) {
-      // Opcional: Limpa o banco antes para não duplicar nos testes. 
-      // Se não quiser apagar o que já existe, comente a linha abaixo:
+      // Limpa o banco antes para não duplicar nos testes. 
       await QuestaoModel.deleteMany({}); 
 
       const questoesInseridas = await QuestaoModel.insertMany(dados);
@@ -107,10 +122,20 @@ const gerenciarBancoQuestoes = async (req, res) => {
     return res.status(500).json({ error: 'Erro interno ao processar a inserção no banco de dados.' });
   }
 };
-
-// Exportando todas as funções atualizadas do controlador
+// Retorna uma lista de strings com todos os assuntos únicos cadastrados no banco
+const listarAssuntosDisponiveis = async (req, res) => {
+  try {
+    // O método distinct do Mongoose extrai valores únicos do campo 'assunto'
+    const assuntos = await QuestaoModel.distinct('assunto');
+    return res.status(200).json(assuntos);
+  } catch (err) {
+    console.error('Erro ao listar assuntos do banco:', err);
+    return res.status(500).json({ error: 'Erro interno ao buscar assuntos.' });
+  }
+};
 module.exports = {
   cadastrarProfessor,
   executarLoginProfessor,
-  gerenciarBancoQuestoes
+  gerenciarBancoQuestoes,
+  listarAssuntosDisponiveis
 };
