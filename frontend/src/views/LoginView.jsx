@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BASE_URL } from '../api';
 
-export default function LoginView() {
+export default function LoginView({ onLoginSuccess }) { // 🎯 RECEBE A PROP onLoginSuccess AQUI
     const [tipoUsuario, setTipoUsuario] = useState('aluno');
     const [usuario, setUsuario] = useState('');
     const [senha, setSenha] = useState('');
@@ -17,7 +17,6 @@ export default function LoginView() {
         }
 
         try {
-            // SELEÇÃO DINÂMICA DO ENDPOINT: Escolhe a rota de acordo com o tipo de usuário selecionado
             const endpoint = tipoUsuario === 'professor' ? '/login-professor' : '/login';
 
             const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -28,26 +27,33 @@ export default function LoginView() {
             const dados = await response.json();
 
             if (response.ok) {
-                // 🎯 GRAVAÇÃO DO TOKEN JWT: Fundamental para autenticar nas rotas protegidas da IA
+                // 1. Grava no localStorage
                 localStorage.setItem('geomatrix_token', dados.token);
                 localStorage.setItem('session_role', dados.role);
                 localStorage.setItem('session_name', dados.nome);
-                
-                if (dados.role === 'professor') {
-                    // Armazena o ID único gerado na coleção de Professores
-                    localStorage.setItem('session_id', dados._id);
-                    navigate('/admin');
-                } else {
-                    // Mantém o mapeamento relacional clássico do Aluno
-                    localStorage.setItem('session_id', dados._id);
+                localStorage.setItem('session_id', dados._id);
+
+                if (dados.role === 'aluno') {
                     localStorage.setItem('session_turma', dados.turma_id?.nome || 'Sem Turma');
-                    
-                    // 🎯 GRAVAÇÃO DO ID DA TURMA: Mapeia a turma do aluno para o motor adaptativo de IA
-                    // Captura tanto o formato populado (dados.turma_id._id) quanto o ID direto (dados.turmaId)
                     const idTurma = dados.turmaId || dados.turma_id?._id || '';
                     localStorage.setItem('geomatrix_turmaId', idTurma);
-                    
-                    // Redireciona o aluno para a tela da atividade adaptativa do GeoMatrix
+                }
+
+                const userData = {
+                    _id: dados._id,
+                    nome: dados.nome,
+                    role: dados.role
+                };
+
+                // 2. 🎯 NOTIFICA O APP/ROUTER QUE O USUÁRIO LOGOU (Atualiza o estado React instantaneamente)
+                if (onLoginSuccess) {
+                    onLoginSuccess(userData);
+                }
+
+                // 3. Redireciona
+                if (dados.role === 'professor') {
+                    navigate('/admin');
+                } else {
                     navigate('/simulador');
                 }
             } else {

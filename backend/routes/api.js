@@ -37,6 +37,7 @@ router.get('/proxima', autenticarToken, questoesController.obterProximaQuestaoAd
 
 // Rota para submeter, corrigir e computar a pontuação adaptativa
 router.post('/submeter', autenticarToken, questoesController.submeterRespostaQuestao);
+router.get('/dashboard', autenticarToken, alunoController.obterDashboardAluno);
 
 
 // --- Professor / Turmas ---

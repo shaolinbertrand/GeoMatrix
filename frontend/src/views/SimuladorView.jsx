@@ -14,9 +14,14 @@ export default function SimuladorView() {
     const [opcaoSelecionada, setOpcaoSelecionada] = useState('');
     const [respostaDiscursiva, setRespostaDiscursiva] = useState('');
     
-    // Feedback pós-envio
+    // Feedback pós-envio (incluindo a gamificação)
     const [respondido, setRespondido] = useState(false);
-    const [resultado, setResultado] = useState({ acertou: false, gabaritoOficial: '' });
+    const [resultado, setResultado] = useState({ 
+        acertou: false, 
+        gabaritoOficial: '', 
+        pontosGanhos: 0, 
+        pontuacaoTotal: 0 
+    });
 
     const navigate = useNavigate();
     const token = localStorage.getItem('geomatrix_token');
@@ -84,7 +89,6 @@ export default function SimuladorView() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    // 🎯 CORRIGIDO: Envia o _id do MongoDB para validação no back-end
                     questaoId: questao?.id,
                     respostaAluno: respostaFinal
                 })
@@ -95,7 +99,9 @@ export default function SimuladorView() {
                 setRespondido(true);
                 setResultado({
                     acertou: dados.acertou,
-                    gabaritoOficial: dados.gabaritoOficial
+                    gabaritoOficial: dados.gabaritoOficial,
+                    pontosGanhos: dados.pontosGanhos || 0,
+                    pontuacaoTotal: dados.pontuacaoTotal || 0
                 });
             } else {
                 alert(dados.error || "Erro ao processar resposta.");
@@ -108,49 +114,88 @@ export default function SimuladorView() {
     // 3. LOGOUT E LIMPEZA DE SESSÃO
     const executarLogout = () => {
         localStorage.clear();
-        navigate('/');
+        window.location.href = '/login';
     };
 
     if (carregando) return <div className="loading-box">Carregando sua próxima trilha no GeoMatrix...</div>;
 
     if (atividadeConcluida) {
         return (
-            <div className="simulador-container">
-                <div className="panel text-center">
-                    <h2>Atividade Concluída!</h2>
+            <div className="simulador-container" style={{ padding: '2rem' }}>
+                <div className="panel text-center" style={{ maxWidth: '600px', margin: '0 auto' }}>
+                    <h2>🎉 Atividade Concluída!</h2>
                     <p style={{ margin: '1.5rem 0', fontSize: '1.2rem' }}>{mensagemFim}</p>
-                    <button className="btn-login" onClick={executarLogout}>Sair do Sistema</button>
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                        <button className="btn-login" onClick={() => navigate('/dashboard')} style={{ background: '#3498db' }}>
+                            📊 Ver Meu Dashboard
+                        </button>
+                        <button className="btn-login" onClick={executarLogout} style={{ background: '#e74c3c' }}>
+                            🚪 Sair do Sistema
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="simulador-container" style={{ padding: '2rem' }}>
-            <div className="panel" style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div className="simulador-container" style={{ padding: '1.5rem', maxWidth: '900px', margin: '0 auto' }}>
+            
+            {/* 🧭 BARRA DE MENU SUPERIOR (NAVBAR) */}
+            <div style={{ 
+                display: 'flex', 
+                justify: 'space-between', 
+                alignItems: 'center', 
+                background: '#ffffff', 
+                padding: '0.8rem 1.2rem', 
+                borderRadius: '8px', 
+                marginBottom: '1.5rem', 
+                boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
+                border: '1px solid #e0e0e0'
+            }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#2c3e50', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
+                    📐 GeoMatrix
+                </div>
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                    <button 
+                        onClick={() => navigate('/dashboard')} 
+                        style={{ background: '#e3f2fd', color: '#1565c0', border: '1px solid #bbdefb', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        📊 Meu Progresso
+                    </button>
+                    <button 
+                        onClick={executarLogout} 
+                        style={{ background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        🚪 Sair
+                    </button>
+                </div>
+            </div>
+
+            {/* CARD PRINCIPAL DA QUESTÃO */}
+            <div className="panel" style={{ background: '#fff', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
                 
-                {/* Header Dinâmico */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #ddd', paddingBottom: '1rem' }}>
+                {/* Header do Tópico e Turma */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.8rem' }}>
                     <div>
                         <span className="badge-turma" style={{ background: '#4A90E2', color: '#fff', padding: '0.3rem 0.8rem', borderRadius: '4px', fontSize: '0.85rem' }}>
-                            {nomeTurma}
+                            {nomeTurma || 'Turma Ativa'}
                         </span>
                         <h4 style={{ marginTop: '0.5rem', color: '#555' }}>Tópico: {questao?.assunto}</h4>
                     </div>
-                    <button className="btn-logout" onClick={executarLogout} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}>
-                        Sair
-                    </button>
+                    <span style={{ fontSize: '0.85rem', background: '#f0f0f0', padding: '0.3rem 0.6rem', borderRadius: '4px', color: '#666', textTransform: 'capitalize' }}>
+                        Dificuldade: <strong>{questao?.dificuldade}</strong>
+                    </span>
                 </div>
 
-                {/* Card da Questão */}
+                {/* Conteúdo da Questão */}
                 <div className="questao-card">
                     <p style={{ fontSize: '1.15rem', fontWeight: '500', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-                        {/* 🎯 GARANTIDO: Renderiza o campo 'numero' atualizado */}
                         <strong>Questão {questao?.numero}:</strong> {questao?.enunciado}
                     </p>
 
                     <form onSubmit={enviarResposta}>
-                        {/* Renderização Condicional por Tipo de Questão */}
+                        {/* Renderização Objetiva ou Discursiva */}
                         {questao?.tipo === 'objetiva' ? (
                             <div className="opcoes-container" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                                 {questao?.opcoes?.map((opcao, idx) => (
@@ -192,23 +237,23 @@ export default function SimuladorView() {
                             </div>
                         )}
 
-                        {/* Botões de Ação */}
+                        {/* Botões de Submissão e Avanço */}
                         {!respondido ? (
-                            <button type="submit" className="btn-login" style={{ marginTop: '1.5rem', width: '100%' }}>
+                            <button type="submit" className="btn-login" style={{ marginTop: '1.5rem', width: '100%', background: '#3498db', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
                                 Confirmar e Enviar Resposta
                             </button>
                         ) : (
-                            <button type="button" className="btn-login" onClick={buscarProximaQuestao} style={{ marginTop: '1.5rem', width: '100%', background: '#2ecc71' }}>
-                                Avançar para Próxima Questão (IA)
+                            <button type="button" className="btn-login" onClick={buscarProximaQuestao} style={{ marginTop: '1.5rem', width: '100%', background: '#2ecc71', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
+                                Avançar para Próxima Questão (IA) 🚀
                             </button>
                         )}
                     </form>
                 </div>
 
-                {/* Bloco de Feedback Adaptativo */}
+                {/* Bloco de Feedback e Gamificação */}
                 {respondido && (
                     <div 
-                        className={`feedback-box`} 
+                        className="feedback-box"
                         style={{ 
                             marginTop: '1.5rem', 
                             padding: '1rem', 
@@ -218,10 +263,21 @@ export default function SimuladorView() {
                             border: `1px solid ${resultado.acertou ? '#c3e6cb' : '#f5c6cb'}`
                         }}
                     >
-                        <h5>{resultado.acertou ? "🎯 Excelente! Você acertou!" : "❌ Resposta Incorreta."}</h5>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h5 style={{ margin: 0, fontSize: '1.1rem' }}>
+                                {resultado.acertou ? "🎯 Excelente! Você acertou!" : "❌ Resposta Incorreta."}
+                            </h5>
+                            {resultado.acertou && resultado.pontosGanhos > 0 && (
+                                <span style={{ background: '#2e7d32', color: '#fff', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                    +{resultado.pontosGanhos} pts! ⭐
+                                </span>
+                            )}
+                        </div>
+
                         <p style={{ marginTop: '0.5rem', fontSize: '0.95rem' }}>
                             <strong>Solução/Gabarito:</strong> {resultado.gabaritoOficial}
                         </p>
+                        
                         <small style={{ display: 'block', marginTop: '0.5rem', color: '#555' }}>
                             {resultado.acertou 
                                 ? "O motor de IA subiu sua proficiência. Prepare-se para um desafio maior!" 

@@ -2,6 +2,8 @@ const MotorAdaptativo = require('../services/MotorIA');
 const Questao = require('../models/Questao');
 const Aluno = require('../models/Aluno');
 const Turma = require('../models/Turma');
+// 🎯 IMPORTAÇÃO DO PROGRESSO DO ALUNO (Necessário para o Dashboard)
+const ProgressoAluno = require('../models/ProgressoAluno'); 
 // 🎯 IMPORTAÇÃO DO JWT: Necessário para gerar o token no login
 const jwt = require('jsonwebtoken');
 
@@ -86,7 +88,7 @@ const atualizarProgresso = async (req, res) => {
   }
 };
 
-// 5. VINCULA OU MATRICULA UM ALUNO A UMA TURMA SPECÍFICA
+// 5. VINCULA OU MATRICULA UM ALUNO A UMA TURMA ESPECÍFICA
 const vincularAlunoATurma = async (req, res) => {
   const { alunoId, turmaId } = req.body;
 
@@ -135,7 +137,7 @@ const verificarResposta = async (req, res) => {
       // Atualiza o histórico como resolvido com sucesso
       await Aluno.findByIdAndUpdate(alunoId, {
         $inc: { pontuacao: 10, desafios_concluidos: 1 },
-        $push: { historico_desafios: { questao_id: questaoId, resolvido: true, tentatives: 1 } }
+        $push: { historico_desafios: { questao_id: questaoId, resolvido: true, tentativas: 1 } }
       });
 
       return res.status(200).json({ status: 'sucesso', msg: 'Resposta correta!' });
@@ -159,11 +161,94 @@ const verificarResposta = async (req, res) => {
   }
 };
 
+// 7. OBTÉM OS DADOS DO DASHBOARD COM ESTATÍSTICAS DE ERRO/ACERTO E DIAGNÓSTICO
+const obterDashboardAluno = async (req, res) => {
+  try {
+    const alunoId = req.usuario?.id || req.usuario?._id;
+
+    if (!alunoId) {
+      return res.status(400).json({ error: 'ID do aluno não localizado no token.' });
+    }
+
+    // Busca o aluno com o histórico populado das questões
+    const aluno = await Aluno.findById(alunoId)
+      .select('nome pontuacao desafios_concluidos historico_desafios')
+      .populate('historico_desafios.questao_id', 'assunto tags categoria');
+
+    if (!aluno) {
+      return res.status(404).json({ error: 'Aluno não encontrado no banco de dados.' });
+    }
+
+    // Busca os registros de progresso por chave de turma
+    const progressos = await ProgressoAluno.find({ aluno: alunoId });
+
+    // Mapeamento de métricas por assunto individual
+    const estatisticasPorAssunto = {};
+
+    if (aluno.historico_desafios && aluno.historico_desafios.length > 0) {
+      aluno.historico_desafios.forEach((item) => {
+        const assunto = item.questao_id?.assunto;
+        if (assunto) {
+          if (!estatisticasPorAssunto[assunto]) {
+            estatisticasPorAssunto[assunto] = { total: 0, acertos: 0, erros: 0 };
+          }
+          estatisticasPorAssunto[assunto].total += 1;
+          if (item.resolvido) {
+            estatisticasPorAssunto[assunto].acertos += 1;
+          } else {
+            estatisticasPorAssunto[assunto].erros += 1;
+          }
+        }
+      });
+    }
+
+    // Estrutura a resposta dividindo os assuntos ativos
+    const detalheTopicos = [];
+
+    progressos.forEach((p) => {
+      const listaAssuntos = p.assunto.split('|');
+
+      listaAssuntos.forEach((assuntoNome) => {
+        const nomeFormatado = assuntoNome.trim();
+        if (nomeFormatado) {
+          const stats = estatisticasPorAssunto[nomeFormatado] || { total: 0, acertos: 0, erros: 0 };
+          
+          // Cálculo das porcentagens de precisão
+          const pctAcerto = stats.total > 0 ? Math.round((stats.acertos / stats.total) * 100) : 0;
+          const pctErro = stats.total > 0 ? Math.round((stats.erros / stats.total) * 100) : 0;
+
+          detalheTopicos.push({
+            assunto: nomeFormatado,
+            nivelProficiencia: p.nivelAtual,
+            questoesRespondidasCount: stats.total,
+            acertos: stats.acertos,
+            erros: stats.erros,
+            porcentagemAcerto: pctAcerto,
+            porcentagemErro: pctErro
+          });
+        }
+      });
+    });
+
+    return res.status(200).json({
+      nome: aluno.nome,
+      pontuacaoTotal: aluno.pontuacao || 0,
+      desafiosConcluidos: aluno.desafios_concluidos || 0,
+      assuntosEmAndamento: detalheTopicos
+    });
+
+  } catch (error) {
+    console.error('Erro ao carregar dashboard do aluno:', error);
+    return res.status(500).json({ error: 'Erro interno ao carregar o dashboard do aluno.' });
+  }
+};
+
 module.exports = {
   executarLogin,
   cadastrarAluno,
   listarAlunos,
   atualizarProgresso,
   vincularAlunoATurma,
-  verificarResposta
+  verificarResposta,
+  obterDashboardAluno // Exportado com sucesso!
 };

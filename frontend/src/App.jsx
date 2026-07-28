@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import LoginView from './views/LoginView';
-import SimuladorView from './views/SimuladorView';
-import AdminView from './views/AdminView';
+import AppRoutes from './routes/AppRoutes'; // Seu arquivo de rotas
 import questoesData from './questoes.json';
-
+import './App.css';
 export default function App() {
-  const [view, setView] = useState('login');
   const [user, setUser] = useState(null);
   const [questoes, setQuestoes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // 🔄 CICLO 1: Carrega as questões e verifica se já existe uma sessão ativa no navegador
   useEffect(() => {
     setQuestoes(questoesData);
 
@@ -18,66 +15,38 @@ export default function App() {
     const savedId = localStorage.getItem('session_id');
 
     if (savedRole && savedName && savedId) {
-      console.log("🔑 Sessão ativa encontrada para:", savedName);
-      const sessionUser = { _id: savedId, nome: savedName, role: savedRole };
-      setUser(sessionUser);
-      
-      if (savedRole === 'professor') {
-        setView('admin');
-      } else {
-        setView('simulador');
-      }
+      setUser({ _id: savedId, nome: savedName, role: savedRole });
     }
+    
+    setLoading(false);
   }, []);
 
-  // 🔄 CICLO 2: Monitora o localStorage continuamente para detectar o clique do botão de Login
-  useEffect(() => {
-    const checarMudancaSessao = () => {
-      const savedRole = localStorage.getItem('session_role');
-      const savedName = localStorage.getItem('session_name');
-      const savedId = localStorage.getItem('session_id');
-
-      if (savedRole && savedName && savedId && !user) {
-        const sessionUser = { _id: savedId, nome: savedName, role: savedRole };
-        setUser(sessionUser);
-        if (savedRole === 'professor') {
-          setView('admin');
-        } else {
-          setView('simulador');
-        }
-      }
-    };
-
-    // Cria um intervalo rápido para checar o estado da sessão sem travar o render
-    const interval = setInterval(checarMudancaSessao, 400);
-    return () => clearInterval(interval);
-  }, [user]);
+  const handleLogin = (userData) => {
+    localStorage.setItem('session_role', userData.role);
+    localStorage.setItem('session_name', userData.nome);
+    localStorage.setItem('session_id', userData._id);
+    setUser(userData);
+  };
 
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
-    setView('login');
   };
 
+  if (loading) {
+    return <div className="loading-box">Carregando o GeoMatrix...</div>;
+  }
+
+  // 🔴 REMOVEMOS O <BrowserRouter> DAQUI!
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0 }}>
-      {view === 'login' && <LoginView />}
-      
-      {view === 'simulador' && user && (
-        <SimuladorView 
-          aluno={user} 
-          setAluno={setUser} 
-          questoes={questoes} 
-          onLogout={handleLogout} 
-        />
-      )}
-      
-      {view === 'admin' && user && (
-        <AdminView 
-          professor={user}
-          onLogout={handleLogout} 
-        />
-      )}
+      <AppRoutes 
+        user={user} 
+        setUser={setUser} 
+        questoes={questoes} 
+        handleLogin={handleLogin} 
+        handleLogout={handleLogout} 
+      />
     </div>
   );
 }
