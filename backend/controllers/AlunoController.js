@@ -164,13 +164,13 @@ const verificarResposta = async (req, res) => {
 // 7. OBTÉM OS DADOS DO DASHBOARD COM ESTATÍSTICAS DE ERRO/ACERTO E DIAGNÓSTICO
 const obterDashboardAluno = async (req, res) => {
   try {
-    const alunoId = req.usuario?.id || req.usuario?._id;
+    // 🎯 Se o professor passar o ID na URL (req.params.alunoId), usa ele; senão, usa o do token
+    const alunoId = req.params.alunoId || req.usuario?.id || req.usuario?._id;
 
     if (!alunoId) {
-      return res.status(400).json({ error: 'ID do aluno não localizado no token.' });
+      return res.status(400).json({ error: 'ID do aluno não localizado.' });
     }
 
-    // Busca o aluno com o histórico populado das questões
     const aluno = await Aluno.findById(alunoId)
       .select('nome pontuacao desafios_concluidos historico_desafios')
       .populate('historico_desafios.questao_id', 'assunto tags categoria');
@@ -179,10 +179,8 @@ const obterDashboardAluno = async (req, res) => {
       return res.status(404).json({ error: 'Aluno não encontrado no banco de dados.' });
     }
 
-    // Busca os registros de progresso por chave de turma
     const progressos = await ProgressoAluno.find({ aluno: alunoId });
 
-    // Mapeamento de métricas por assunto individual
     const estatisticasPorAssunto = {};
 
     if (aluno.historico_desafios && aluno.historico_desafios.length > 0) {
@@ -202,7 +200,6 @@ const obterDashboardAluno = async (req, res) => {
       });
     }
 
-    // Estrutura a resposta dividindo os assuntos ativos
     const detalheTopicos = [];
 
     progressos.forEach((p) => {
@@ -213,7 +210,6 @@ const obterDashboardAluno = async (req, res) => {
         if (nomeFormatado) {
           const stats = estatisticasPorAssunto[nomeFormatado] || { total: 0, acertos: 0, erros: 0 };
           
-          // Cálculo das porcentagens de precisão
           const pctAcerto = stats.total > 0 ? Math.round((stats.acertos / stats.total) * 100) : 0;
           const pctErro = stats.total > 0 ? Math.round((stats.erros / stats.total) * 100) : 0;
 

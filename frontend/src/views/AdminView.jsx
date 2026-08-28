@@ -5,10 +5,10 @@ export default function AdminView({ onLogout }) {
     const [abaAtiva, setAbaAtiva] = useState('turmas');
     const [msg, setMsg] = useState({ txt: '', tipo: '' });
     
-    // Listas dinâmicas do Banco de Dados
+    // Listas do Banco
     const [t_lista, setT_lista] = useState([]);
     const [alunosLista, setAlunosLista] = useState([]);
-    const [listaAssuntos, setListaAssuntos] = useState([]); // 🎯 Agora vem do MongoDB
+    const [listaAssuntos, setListaAssuntos] = useState([]);
 
     // Estados dos formulários
     const [turmaSelecionada, setTurmaSelecionada] = useState('');
@@ -17,17 +17,25 @@ export default function AdminView({ onLogout }) {
     const [novaTurmaNome, setNovaTurmaNome] = useState('');
     const [assuntosSelecionados, setAssuntosSelecionados] = useState([]);
 
+    // Formulário de Questões
     const [novaQuestao, setNovaQuestao] = useState({
         id: '', categoria: 'Geometria', assunto: '',
         dificuldade: 'Médio', tipo: 'objetiva', enunciado: '',
         opcaoA: '', opcaoB: '', opcaoC: '', opcaoD: '', gabarito: '1'
     });
 
+    // Relatório da Turma
+    const [turmaRelatorioId, setTurmaRelatorioId] = useState('');
+    const [dadosRelatorio, setDadosRelatorio] = useState(null);
+    const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
+
+    // 🎯 Estados para o Modal de Diagnóstico Individual do Aluno
+    const [alunoSelecionadoDetalhe, setAlunoSelecionadoDetalhe] = useState(null);
+    const [carregandoDetalheAluno, setCarregandoDetalheAluno] = useState(false);
+
     const token = localStorage.getItem('geomatrix_token');
     const nomeProfessor = localStorage.getItem('session_name') || 'Professor';
-    const professorId = localStorage.getItem('session_id');
 
-    // Carregamento inicial de dados unificado
     useEffect(() => {
         if (token) {
             buscarTurmas();
@@ -35,6 +43,12 @@ export default function AdminView({ onLogout }) {
             buscarAssuntosDoBanco();
         }
     }, [token]);
+
+    useEffect(() => {
+        if (turmaRelatorioId && abaAtiva === 'dashboard') {
+            buscarRelatorioTurma(turmaRelatorioId);
+        }
+    }, [turmaRelatorioId, abaAtiva]);
 
     const buscarTurmas = async () => {
         try {
@@ -44,7 +58,10 @@ export default function AdminView({ onLogout }) {
             if (res.ok) {
                 const dados = await res.json();
                 setT_lista(dados);
-                if (dados.length > 0) setTurmaSelecionada(dados[0].nome);
+                if (dados.length > 0) {
+                    setTurmaSelecionada(dados[0].nome);
+                    if (!turmaRelatorioId) setTurmaRelatorioId(dados[0]._id);
+                }
             }
         } catch (err) {
             console.error("Erro ao buscar turmas:", err);
@@ -63,7 +80,6 @@ export default function AdminView({ onLogout }) {
         }
     };
 
-    // 🎯 BUSCA DINÂMICA DE ASSUNTOS CADASTRADOS
     const buscarAssuntosDoBanco = async () => {
         try {
             const res = await fetch(`${BASE_URL}/questoes/assuntos`, {
@@ -72,13 +88,49 @@ export default function AdminView({ onLogout }) {
             if (res.ok) {
                 const dados = await res.json();
                 setListaAssuntos(dados);
-                // Define o primeiro assunto como padrão para o formulário de criar questões
                 if (dados.length > 0) {
                     setNovaQuestao(prev => ({ ...prev, assunto: dados[0] }));
                 }
             }
         } catch (err) {
-            console.error("Erro ao buscar assuntos dinâmicos:", err);
+            console.error("Erro ao buscar assuntos:", err);
+        }
+    };
+
+    const buscarRelatorioTurma = async (idTurma) => {
+        setCarregandoRelatorio(true);
+        try {
+            const res = await fetch(`${BASE_URL}/turmas/${idTurma}/relatorio`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setDadosRelatorio(data);
+            } else {
+                setDadosRelatorio(null);
+            }
+        } catch (err) {
+            console.error("Erro ao buscar relatório da turma:", err);
+        } finally {
+            setCarregandoRelatorio(false);
+        }
+    };
+
+    // 🎯 Busca os dados individuais do aluno ao clicar na linha
+    const abrirDiagnosticoAluno = async (alunoId) => {
+        setCarregandoDetalheAluno(true);
+        try {
+            const res = await fetch(`${BASE_URL}/alunos/${alunoId}/dashboard`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAlunoSelecionadoDetalhe(data);
+            }
+        } catch (err) {
+            console.error("Erro ao carregar detalhes do aluno:", err);
+        } finally {
+            setCarregandoDetalheAluno(false);
         }
     };
 
@@ -98,7 +150,6 @@ export default function AdminView({ onLogout }) {
             return;
         }
 
-        // Tenta capturar o ID do professor de todas as fontes possíveis do localStorage
         const idDoDocente = localStorage.getItem('session_id') || 
                             localStorage.getItem('_id') || 
                             localStorage.getItem('professor_id');
@@ -112,8 +163,8 @@ export default function AdminView({ onLogout }) {
                 },
                 body: JSON.stringify({ 
                     nome: novaTurmaNome, 
-                    professor: idDoDocente,    // Mongoose exige este campo populado
-                    professor_id: idDoDocente, // Mantém compatibilidade histórica
+                    professor: idDoDocente,
+                    professor_id: idDoDocente,
                     assuntosAtivos: assuntosSelecionados
                 })
             });
@@ -154,7 +205,7 @@ export default function AdminView({ onLogout }) {
                 })
             });
             if (res.ok) {
-                setMsg({ txt: '🎉 Aluno cadastrado e vinculado com sucesso no MongoDB!', tipo: 'success' });
+                setMsg({ txt: '🎉 Aluno cadastrado com sucesso!', tipo: 'success' });
                 setNomeAluno('');
                 setUserAluno('');
                 buscarAlunos();
@@ -193,9 +244,9 @@ export default function AdminView({ onLogout }) {
             });
 
             if (res.ok) {
-                setMsg({ txt: '✅ Nova questão inserida com sucesso! O banco de dados foi atualizado.', tipo: 'success' });
+                setMsg({ txt: '✅ Nova questão inserida com sucesso!', tipo: 'success' });
                 setNovaQuestao({ ...novaQuestao, id: '', enunciado: '', opcaoA: '', opcaoB: '', opcaoC: '', opcaoD: '' });
-                buscarAssuntosDoBanco(); // 🎯 Recarrega os assuntos caso um novo tenha sido digitado/criado
+                buscarAssuntosDoBanco();
             } else {
                 const err = await res.json();
                 setMsg({ txt: `❌ Erro: ${err.error}`, tipo: 'error' });
@@ -203,6 +254,12 @@ export default function AdminView({ onLogout }) {
         } catch (err) {
             setMsg({ txt: '❌ Erro ao conectar com o banco de dados.', tipo: 'error' });
         }
+    };
+
+    const mapaNivel = {
+        1: 'Iniciante (Fácil)',
+        2: 'Intermediário (Médio)',
+        3: 'Avançado (Difícil)'
     };
 
     return (
@@ -227,6 +284,7 @@ export default function AdminView({ onLogout }) {
                 </div>
             )}
 
+            {/* ABA 1: TURMAS E MATRÍCULAS */}
             {abaAtiva === 'turmas' && (
                 <div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
@@ -237,29 +295,19 @@ export default function AdminView({ onLogout }) {
                                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nome da Turma:</label>
                                     <input type="text" value={novaTurmaNome} onChange={(e) => setNovaTurmaNome(e.target.value)} placeholder="Ex: 8º Ano A" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }} required />
                                 </div>
-                                
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Ativar Assuntos no Motor Adaptativo:</label>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', background: '#F7FAFC', padding: '10px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
-                                        {listaAssuntos.length === 0 ? (
-                                            <p style={{ color: '#A0AEC0', fontSize: '0.9rem', margin: 0 }}>Nenhum assunto encontrado no banco de dados. Cadastre questões primeiro!</p>
-                                        ) : (
-                                            listaAssuntos.map((assunto, i) => (
-                                                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={assuntosSelecionados.includes(assunto)} onChange={() => handleCheckboxChange(assunto)} />
-                                                    {assunto}
-                                                </label>
-                                            ))
-                                        )}
+                                        {listaAssuntos.map((assunto, i) => (
+                                            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={assuntosSelecionados.includes(assunto)} onChange={() => handleCheckboxChange(assunto)} />
+                                                {assunto}
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
                                 <button type="submit" style={{ background: '#3182CE', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Turma no Banco</button>
                             </form>
-
-                            <h4 style={{ marginBottom: '10px', marginTop: '1.5rem' }}>Turmas Configuradas:</h4>
-                            <ul style={{ paddingLeft: '20px', color: '#4A5568' }}>
-                                {t_lista.map((t) => <li key={t._id}><strong>{t.nome}</strong> — Tópicos ativos: {t.assuntosAtivos?.length || 0}</li>)}
-                            </ul>
                         </div>
 
                         <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
@@ -281,48 +329,19 @@ export default function AdminView({ onLogout }) {
                                         style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', background: '#fff' }}
                                         required
                                     >
-                                        {t_lista.length === 0 ? (
-                                            <option value="">Nenhuma turma encontrada...</option>
-                                        ) : (
-                                            t_lista.map((t) => (
-                                                <option key={t._id} value={t.nome}>
-                                                    {t.nome}
-                                                </option>
-                                            ))
-                                        )}
+                                        {t_lista.map((t) => (
+                                            <option key={t._id} value={t.nome}>{t.nome}</option>
+                                        ))}
                                     </select>
                                 </div>
                                 <button type="submit" style={{ background: '#38A169', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Efetuar Matrícula</button>
                             </form>
                         </div>
                     </div>
-
-                    <div style={{ marginTop: '2rem', background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                        <h3 style={{ marginTop: 0, color: '#2D3748' }}>📋 Lista Geral de Alunos Matriculados</h3>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#EDF2F7', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Nome do Aluno</th>
-                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Usuário</th>
-                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Turma Vinculada</th>
-                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Pontuação Acumulada</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {alunosLista.map((aluno) => (
-                                    <tr key={aluno._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                                        <td style={{ padding: '12px' }}>{aluno.nome}</td>
-                                        <td style={{ padding: '12px' }}>{aluno.usuario}</td>
-                                        <td style={{ padding: '12px' }}>{aluno.turma_id?.nome || 'Sem vínculo'}</td>
-                                        <td style={{ padding: '12px', fontWeight: 'bold', color: '#3182CE' }}>{aluno.pontuacao || 0} XP</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
             )}
 
+            {/* ABA 2: BANCO DE QUESTÕES */}
             {abaAtiva === 'questoes' && (
                 <div style={{ background: '#FFF', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                     <h3 style={{ marginTop: 0, color: '#2D3748' }}>🧠 Expandir Banco de Questões Dinâmicas</h3>
@@ -334,28 +353,14 @@ export default function AdminView({ onLogout }) {
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Tópico do Currículo:</label>
-                                <input 
-                                    type="text" 
-                                    value={novaQuestao.assunto} 
-                                    onChange={(e) => setNovaQuestao({...novaQuestao, assunto: e.target.value})} 
-                                    placeholder="Digite o assunto (Ex: Teorema de Pitágoras)" 
-                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} 
-                                    required 
-                                />
+                                <input type="text" value={novaQuestao.assunto} onChange={(e) => setNovaQuestao({...novaQuestao, assunto: e.target.value})} placeholder="Ex: Teorema de Pitágoras" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nível de Complexidade:</label>
-                                <select value={novaQuestao.dificuldade} onChange={(e) => setNovaQuestao({...novaQuestao, difficulty: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }}>
+                                <select value={novaQuestao.dificuldade} onChange={(e) => setNovaQuestao({...novaQuestao, dificuldade: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }}>
                                     <option>Fácil</option>
                                     <option>Médio</option>
                                     <option>Difícil</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Formato da Questão:</label>
-                                <select value={novaQuestao.tipo} onChange={(e) => setNovaQuestao({...novaQuestao, tipo: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }}>
-                                    <option value="objetiva">Múltipla Escolha (Objetiva)</option>
-                                    <option value="discursiva">Desenvolvimento Passo a Passo (Discursiva)</option>
                                 </select>
                             </div>
                         </div>
@@ -363,37 +368,238 @@ export default function AdminView({ onLogout }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Enunciado Contextualizado:</label>
-                                <textarea rows="3" value={novaQuestao.enunciado} onChange={(e) => setNovaQuestao({...novaQuestao, enunciado: e.target.value})} placeholder="Escreva o problema matemático..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', resize: 'none' }} required />
+                                <textarea rows="3" value={novaQuestao.enunciado} onChange={(e) => setNovaQuestao({...novaQuestao, enunciado: e.target.value})} placeholder="Escreva o problema..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', resize: 'none' }} required />
                             </div>
 
-                            {novaQuestao.tipo === 'objetiva' && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                    <input type="text" value={novaQuestao.opcaoA} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoA: e.target.value})} placeholder="Opção A" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                    <input type="text" value={novaQuestao.opcaoB} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoB: e.target.value})} placeholder="Opção B" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                    <input type="text" value={novaQuestao.opcaoC} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoC: e.target.value})} placeholder="Opção C" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                    <input type="text" value={novaQuestao.opcaoD} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoD: e.target.value})} placeholder="Opção D" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                </div>
-                            )}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                <input type="text" value={novaQuestao.opcaoA} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoA: e.target.value})} placeholder="Opção A" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
+                                <input type="text" value={novaQuestao.opcaoB} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoB: e.target.value})} placeholder="Opção B" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
+                                <input type="text" value={novaQuestao.opcaoC} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoC: e.target.value})} placeholder="Opção C" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
+                                <input type="text" value={novaQuestao.opcaoD} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoD: e.target.value})} placeholder="Opção D" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
+                            </div>
 
                             <div>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Gabarito / Solução Oficial:</label>
-                                <input type="text" value={novaQuestao.gabarito} onChange={(e) => setNovaQuestao({...novaQuestao, gabarito: e.target.value})} placeholder={novaQuestao.tipo === 'objetiva' ? "Digite a opção correta exatamente igual" : "Escreva a resposta final numérica"} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Gabarito:</label>
+                                <input type="text" value={novaQuestao.gabarito} onChange={(e) => setNovaQuestao({...novaQuestao, gabarito: e.target.value})} placeholder="Opção correta (1 para A, etc)" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
                             </div>
 
-                            <button type="submit" style={{ background: '#2B6CB0', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}>Inserir Questão no Repositório</button>
+                            <button type="submit" style={{ background: '#2B6CB0', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}>Inserir Questão</button>
                         </div>
                     </form>
                 </div>
             )}
 
+            {/* ABA 3: 📊 DESEMPENHO E MÉTRICAS REAIS DA TURMA */}
             {abaAtiva === 'dashboard' && (
-                <div style={{ background: '#FFF', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-                    <h3 style={{ color: '#2D3748', marginBottom: '1rem' }}>📊 Dashboard Analítico de Desempenho</h3>
-                    <p style={{ color: '#718096', maxWidth: '600px', margin: '0 auto 2rem auto', lineHeight: '1.6' }}>
-                        Esta seção está reservada para o módulo gráfico de evolução. Em breve, você poderá acompanhar relatórios de erros interceptados pela IA e a proficiência média das turmas por assunto do currículo.
-                    </p>
-                    <div style={{ height: '200px', background: '#EDF2F7', border: '2px dashed #CBD5E0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A0AEC0', fontWeight: 'bold' }}>
-                        Módulo Gráfico (Placeholder — Próxima Fase do Projeto)
+                <div>
+                    <div style={{ background: '#FFF', padding: '15px 20px', borderRadius: '8px', marginBottom: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <label style={{ fontWeight: 'bold', color: '#2D3748' }}>Selecione a Turma para Análise:</label>
+                        <select 
+                            value={turmaRelatorioId} 
+                            onChange={(e) => {
+                                setTurmaRelatorioId(e.target.value);
+                                buscarRelatorioTurma(e.target.value);
+                            }}
+                            style={{ padding: '8px 14px', borderRadius: '6px', border: '1px solid #CBD5E0', fontSize: '1rem', background: '#F7FAFC' }}
+                        >
+                            {t_lista.map(t => (
+                                <option key={t._id} value={t._id}>{t.nome}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {carregandoRelatorio ? (
+                        <div style={{ background: '#FFF', padding: '40px', textAlign: 'center', borderRadius: '8px', color: '#718096' }}>
+                            Carregando métricas da turma...
+                        </div>
+                    ) : (
+                        <div>
+                            {/* Cards de Métricas Consolidadas */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+                                <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #3182CE', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
+                                    <h4 style={{ margin: 0, color: '#718096', fontSize: '0.95rem' }}>Estudantes Matriculados</h4>
+                                    <p style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#2D3748', margin: '0.4rem 0 0' }}>
+                                        {dadosRelatorio?.totalAlunos || 0}
+                                    </p>
+                                </div>
+
+                                <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #38A169', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
+                                    <h4 style={{ margin: 0, color: '#718096', fontSize: '0.95rem' }}>Média de Pontos da Turma</h4>
+                                    <p style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#276749', margin: '0.4rem 0 0' }}>
+                                        {dadosRelatorio?.mediaPontos || 0} pts
+                                    </p>
+                                </div>
+
+                                <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #DD6B20', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
+                                    <h4 style={{ margin: 0, color: '#718096', fontSize: '0.95rem' }}>Precisão Média Geral</h4>
+                                    <p style={{ fontSize: '2.2rem', fontWeight: 'bold', color: '#C05621', margin: '0.4rem 0 0' }}>
+                                        {dadosRelatorio?.mediaTaxaAcerto || 0}%
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Tabela de Desempenho dos Alunos (Linhas Clicáveis) */}
+                            <div style={{ background: '#FFF', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h3 style={{ margin: 0, color: '#2D3748' }}>👥 Desempenho Individual — {dadosRelatorio?.turmaNome || 'Turma'}</h3>
+                                    <small style={{ color: '#718096' }}>💡 Clique no aluno para ver o raio-X detalhado de tópicos</small>
+                                </div>
+
+                                {dadosRelatorio?.alunos && dadosRelatorio.alunos.length > 0 ? (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '0.5rem' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: '#EDF2F7', color: '#4A5568', fontSize: '0.9rem' }}>
+                                                <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Aluno</th>
+                                                <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Usuário</th>
+                                                <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Desafios Concluídos</th>
+                                                <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Pontuação</th>
+                                                <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Taxa de Precisão</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dadosRelatorio.alunos.map((a) => (
+                                                <tr 
+                                                    key={a._id} 
+                                                    onClick={() => abrirDiagnosticoAluno(a._id)}
+                                                    style={{ 
+                                                        borderBottom: '1px solid #E2E8F0', 
+                                                        fontSize: '0.95rem',
+                                                        cursor: 'pointer',
+                                                        transition: 'background-color 0.15s ease'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F7FAFC'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <td style={{ padding: '12px', fontWeight: '600', color: '#2B6CB0' }}>🔍 {a.nome}</td>
+                                                    <td style={{ padding: '12px', color: '#718096' }}>{a.usuario}</td>
+                                                    <td style={{ padding: '12px' }}>{a.desafiosConcluidos}</td>
+                                                    <td style={{ padding: '12px', color: '#38A169', fontWeight: 'bold' }}>{a.pontuacao} pts</td>
+                                                    <td style={{ padding: '12px' }}>
+                                                        <span style={{
+                                                            padding: '4px 10px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: 'bold',
+                                                            background: a.taxaAcerto >= 70 ? '#C6F6D5' : a.taxaAcerto >= 50 ? '#FEFCBF' : '#FED7D7',
+                                                            color: a.taxaAcerto >= 70 ? '#22543D' : a.taxaAcerto >= 50 ? '#744210' : '#742A2A'
+                                                        }}>
+                                                            {a.taxaAcerto}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p style={{ color: '#718096', margin: '1rem 0' }}>Nenhum estudante matriculado nesta turma.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 🎯 MODAL DE DIAGNÓSTICO INDIVIDUAL DO ALUNO */}
+            {(alunoSelecionadoDetalhe || carregandoDetalheAluno) && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 9999,
+                    padding: '20px',
+                    boxSizing: 'border-box'
+                }}>
+                    <div style={{
+                        background: '#FFF',
+                        width: '100%',
+                        maxWidth: '750px',
+                        maxHeight: '90vh',
+                        borderRadius: '12px',
+                        padding: '25px',
+                        overflowY: 'auto',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                        position: 'relative'
+                    }}>
+                        <button 
+                            onClick={() => setAlunoSelecionadoDetalhe(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '15px',
+                                right: '15px',
+                                border: 'none',
+                                background: '#EDF2F7',
+                                borderRadius: '50%',
+                                width: '32px',
+                                height: '32px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                color: '#4A5568'
+                            }}
+                        >
+                            ✕
+                        </button>
+
+                        {carregandoDetalheAluno ? (
+                            <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>Carregando dados individuais do aluno...</div>
+                        ) : (
+                            <div>
+                                <h2 style={{ margin: '0 0 5px 0', color: '#1A2B4C' }}>📊 Raio-X de Aprendizagem: {alunoSelecionadoDetalhe.nome}</h2>
+                                <p style={{ color: '#718096', margin: '0 0 1.5rem 0' }}>Métricas adaptativas calculadas pelo GeoMatrix para este estudante.</p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                    <div style={{ background: '#F7FAFC', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #38A169' }}>
+                                        <span style={{ fontSize: '0.85rem', color: '#718096' }}>Pontuação Acumulada</span>
+                                        <p style={{ margin: '5px 0 0 0', fontSize: '1.5rem', fontWeight: 'bold', color: '#276749' }}>
+                                            {alunoSelecionadoDetalhe.pontuacaoTotal} pts
+                                        </p>
+                                    </div>
+                                    <div style={{ background: '#F7FAFC', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #3182CE' }}>
+                                        <span style={{ fontSize: '0.85rem', color: '#718096' }}>Desafios Superados</span>
+                                        <p style={{ margin: '5px 0 0 0', fontSize: '1.5rem', fontWeight: 'bold', color: '#2B6CB0' }}>
+                                            {alunoSelecionadoDetalhe.desafiosConcluidos}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <h4 style={{ color: '#2D3748', marginBottom: '1rem' }}>📚 Desempenho por Tópico do Currículo:</h4>
+
+                                {alunoSelecionadoDetalhe.assuntosEmAndamento && alunoSelecionadoDetalhe.assuntosEmAndamento.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {alunoSelecionadoDetalhe.assuntosEmAndamento.map((item, index) => (
+                                            <div key={index} style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FAFAFA' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                    <h5 style={{ margin: 0, color: '#2D3748', fontSize: '1rem' }}>{item.assunto}</h5>
+                                                    <span style={{ padding: '0.3rem 0.6rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', backgroundColor: '#E8F5E9', color: '#2E7D32' }}>
+                                                        Nível IA: {mapaNivel[item.nivelProficiencia] || 'Intermediário'}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#718096', marginBottom: '0.5rem' }}>
+                                                    <span>{item.questoesRespondidasCount} {item.questoesRespondidasCount === 1 ? 'questão' : 'questões'}</span>
+                                                    <div>
+                                                        <strong style={{ color: '#2E7D32', marginRight: '0.8rem' }}>✅ {item.porcentagemAcerto}% Acertos ({item.acertos})</strong>
+                                                        <strong style={{ color: '#C53030' }}>❌ {item.porcentagemErro}% Erros ({item.erros})</strong>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ width: '100%', height: '8px', backgroundColor: '#EDF2F7', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+                                                    <div style={{ width: `${item.porcentagemAcerto}%`, backgroundColor: '#48BB78', height: '100%' }} />
+                                                    <div style={{ width: `${item.porcentagemErro}%`, backgroundColor: '#F56565', height: '100%' }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={{ color: '#718096' }}>O aluno ainda não possui histórico de resolução nos tópicos ativos.</p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

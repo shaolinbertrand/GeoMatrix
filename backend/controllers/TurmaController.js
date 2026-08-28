@@ -1,4 +1,5 @@
 const Turma = require('../models/Turma');
+const Aluno = require('../models/Aluno');
 
 const criarTurma = async (req, res) => {
   // 🎯 Captura tanto os novos campos quanto mantém suporte aos mapeamentos antigos
@@ -45,7 +46,74 @@ const listarTurmas = async (req, res) => {
   }
 };
 
+// Obtém o panorama geral de uma turma específica
+const obterRelatorioTurma = async (req, res) => {
+  try {
+    const { turmaId } = req.params;
+
+    // Busca dados da própria turma
+    const turma = await Turma.findById(turmaId);
+    if (!turma) {
+      return res.status(404).json({ error: 'Turma não encontrada.' });
+    }
+
+    // Busca os alunos matriculados na turma (com suporte a variações de chave)
+    const alunos = await Aluno.find({
+      $or: [
+        { turma_id: turmaId },
+        { turmaId: turmaId },
+        { turma: turmaId }
+      ]
+    }).select('nome usuario pontuacao desafios_concluidos historico_desafios');
+
+    // Calcula métricas consolidadas
+    let totalPontosTurma = 0;
+    let totalAcertosTurma = 0;
+    let totalTentativasTurma = 0; // 🎯 Contabiliza todas as tentativas (acertos + erros)
+
+    const listaAlunos = alunos.map(aluno => {
+      const pontos = aluno.pontuacao || 0;
+      const desafios = aluno.desafios_concluidos || 0;
+      
+      totalPontosTurma += pontos;
+
+      const acertos = aluno.historico_desafios?.filter(d => d.resolvido).length || 0;
+      const totalTentativasAluno = aluno.historico_desafios?.length || 0;
+
+      totalAcertosTurma += acertos;
+      totalTentativasTurma += totalTentativasAluno;
+
+      return {
+        _id: aluno._id,
+        nome: aluno.nome,
+        usuario: aluno.usuario,
+        pontuacao: pontos,
+        desafiosConcluidos: desafios,
+        taxaAcerto: totalTentativasAluno > 0 ? Math.round((acertos / totalTentativasAluno) * 100) : 0
+      };
+    });
+
+    // 🎯 Precisão real da turma baseada na razão entre acertos e o total de respostas enviadas
+    const mediaTaxaAcerto = totalTentativasTurma > 0 
+      ? Math.round((totalAcertosTurma / totalTentativasTurma) * 100) 
+      : 0;
+
+    return res.status(200).json({
+      turmaNome: turma.nome,
+      totalAlunos: alunos.length,
+      mediaPontos: alunos.length > 0 ? Math.round(totalPontosTurma / alunos.length) : 0,
+      mediaTaxaAcerto,
+      alunos: listaAlunos
+    });
+
+  } catch (error) {
+    console.error('Erro ao gerar relatório da turma:', error);
+    return res.status(500).json({ error: 'Erro interno ao buscar relatório da turma.' });
+  }
+};
+
 module.exports = {
   criarTurma,
-  listarTurmas
+  listarTurmas,
+  obterRelatorioTurma
 };

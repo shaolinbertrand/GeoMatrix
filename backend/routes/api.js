@@ -37,7 +37,7 @@ router.get('/proxima', autenticarToken, questoesController.obterProximaQuestaoAd
 
 // Rota para submeter, corrigir e computar a pontuação adaptativa
 router.post('/submeter', autenticarToken, questoesController.submeterRespostaQuestao);
-router.get('/dashboard', autenticarToken, alunoController.obterDashboardAluno);
+router.get('/alunos/:alunoId/dashboard', autenticarToken, alunoController.obterDashboardAluno);
 
 
 // --- Professor / Turmas ---
@@ -47,6 +47,8 @@ router.post('/turmas', autenticarToken, turmaController.criarTurma);
 // Rota para listar as turmas no <select> do React
 router.get('/turmas', autenticarToken, turmaController.listarTurmas);
 
+//Rota para o professor pegar o leatorio da turma
+router.get('/turmas/:turmaId/relatorio', autenticarToken, turmaController.obterRelatorioTurma);
 // Rota para o professor vincular um aluno a uma turma específica
 router.put('/alunos/vincular-turma', autenticarToken, alunoController.vincularAlunoATurma);
 
