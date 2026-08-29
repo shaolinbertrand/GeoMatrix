@@ -111,9 +111,44 @@ const obterRelatorioTurma = async (req, res) => {
     return res.status(500).json({ error: 'Erro interno ao buscar relatório da turma.' });
   }
 };
+// ATUALIZA O NOME E OS CONTEÚDOS/ASSUNTOS ATIVOS DA TURMA
+const atualizarTurma = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, assuntosAtivos } = req.body;
 
+    if (!id) {
+      return res.status(400).json({ error: 'ID da turma não informado.' });
+    }
+
+    const turmaAtualizada = await Turma.findByIdAndUpdate(
+      id,
+      { 
+        $set: { 
+          nome, 
+          assuntosAtivos: assuntosAtivos || [] 
+        } 
+      },
+      { new: true }
+    );
+
+    if (!turmaAtualizada) {
+      return res.status(404).json({ error: 'Turma não encontrada.' });
+    }
+
+    return res.status(200).json({
+      message: `🎉 Turma '${turmaAtualizada.nome}' atualizada com sucesso!`,
+      turma: turmaAtualizada
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar turma:', error);
+    return res.status(500).json({ error: 'Erro interno ao atualizar turma.' });
+  }
+};
 module.exports = {
   criarTurma,
   listarTurmas,
-  obterRelatorioTurma
+  obterRelatorioTurma,
+  atualizarTurma
 };

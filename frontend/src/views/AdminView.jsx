@@ -4,32 +4,35 @@ import { BASE_URL } from '../api';
 export default function AdminView({ onLogout }) {
     const [abaAtiva, setAbaAtiva] = useState('turmas');
     const [msg, setMsg] = useState({ txt: '', tipo: '' });
-    
-    // Listas do Banco
+
+    // Listas do Banco de Dados
     const [t_lista, setT_lista] = useState([]);
     const [alunosLista, setAlunosLista] = useState([]);
     const [listaAssuntos, setListaAssuntos] = useState([]);
 
-    // Estados dos formulários
+    // Estados dos formulários de Turma e Matrícula
     const [turmaSelecionada, setTurmaSelecionada] = useState('');
     const [nomeAluno, setNomeAluno] = useState('');
     const [userAluno, setUserAluno] = useState('');
     const [novaTurmaNome, setNovaTurmaNome] = useState('');
     const [assuntosSelecionados, setAssuntosSelecionados] = useState([]);
 
-    // Formulário de Questões
+    // 🎯 Estado de Edição de Turma
+    const [turmaEmEdicaoId, setTurmaEmEdicaoId] = useState(null);
+
+    // Estado do formulário de Questões
     const [novaQuestao, setNovaQuestao] = useState({
         id: '', categoria: 'Geometria', assunto: '',
         dificuldade: 'Médio', tipo: 'objetiva', enunciado: '',
         opcaoA: '', opcaoB: '', opcaoC: '', opcaoD: '', gabarito: '1'
     });
 
-    // Relatório da Turma
+    // Estados do Relatório da Turma
     const [turmaRelatorioId, setTurmaRelatorioId] = useState('');
     const [dadosRelatorio, setDadosRelatorio] = useState(null);
     const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
 
-    // 🎯 Estados para o Modal de Diagnóstico Individual do Aluno
+    // Modal de Diagnóstico Individual do Aluno
     const [alunoSelecionadoDetalhe, setAlunoSelecionadoDetalhe] = useState(null);
     const [carregandoDetalheAluno, setCarregandoDetalheAluno] = useState(false);
 
@@ -116,7 +119,6 @@ export default function AdminView({ onLogout }) {
         }
     };
 
-    // 🎯 Busca os dados individuais do aluno ao clicar na linha
     const abrirDiagnosticoAluno = async (alunoId) => {
         setCarregandoDetalheAluno(true);
         try {
@@ -142,7 +144,23 @@ export default function AdminView({ onLogout }) {
         }
     };
 
-    const criarTurma = async (e) => {
+    // 🎯 PREENCHE O FORMULÁRIO COM OS DADOS DA TURMA PARA EDIÇÃO
+    const iniciarEdicaoTurma = (turma) => {
+        setTurmaEmEdicaoId(turma._id);
+        setNovaTurmaNome(turma.nome);
+        setAssuntosSelecionados(turma.assuntosAtivos || []);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // 🎯 CANCELA O MODO DE EDIÇÃO
+    const cancelarEdicao = () => {
+        setTurmaEmEdicaoId(null);
+        setNovaTurmaNome('');
+        setAssuntosSelecionados([]);
+    };
+
+    // 🎯 SALVA NOVA TURMA OU ATUALIZA UMA EXISTENTE
+    const salvarTurma = async (e) => {
         e.preventDefault();
         if (!novaTurmaNome) return;
         if (assuntosSelecionados.length === 0) {
@@ -150,36 +168,44 @@ export default function AdminView({ onLogout }) {
             return;
         }
 
-        const idDoDocente = localStorage.getItem('session_id') || 
-                            localStorage.getItem('_id') || 
-                            localStorage.getItem('professor_id');
+        const idDoDocente = localStorage.getItem('session_id') ||
+            localStorage.getItem('_id') ||
+            localStorage.getItem('professor_id');
 
         try {
-            const res = await fetch(`${BASE_URL}/turmas`, {
-                method: 'POST',
-                headers: { 
+            const isEditing = Boolean(turmaEmEdicaoId);
+            const endpoint = isEditing ? `${BASE_URL}/turmas/${turmaEmEdicaoId}` : `${BASE_URL}/turmas`;
+            const method = isEditing ? 'PUT' : 'POST';
+
+            const res = await fetch(endpoint, {
+                method: method,
+                headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
+                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    nome: novaTurmaNome, 
+                body: JSON.stringify({
+                    nome: novaTurmaNome,
                     professor: idDoDocente,
                     professor_id: idDoDocente,
                     assuntosAtivos: assuntosSelecionados
                 })
             });
-            
+
             if (res.ok) {
-                setMsg({ txt: `🎉 Turma '${novaTurmaNome}' salva com sua trilha ativa de IA!`, tipo: 'success' });
-                setNovaTurmaNome('');
-                setAssuntosSelecionados([]);
+                setMsg({
+                    txt: isEditing
+                        ? `🎉 Turma '${novaTurmaNome}' e seus novos tópicos foram atualizados!`
+                        : `🎉 Turma '${novaTurmaNome}' salva com sucesso!`,
+                    tipo: 'success'
+                });
+                cancelarEdicao();
                 buscarTurmas();
             } else {
                 const err = await res.json();
-                setMsg({ txt: `❌ Erro: ${err.error || 'Erro na validação do servidor.'}`, tipo: 'error' });
+                setMsg({ txt: `❌ Erro: ${err.error || 'Erro ao processar requisição.'}`, tipo: 'error' });
             }
         } catch (e) {
-            setMsg({ txt: 'Erro ao gerar turma.', tipo: 'error' });
+            setMsg({ txt: 'Erro ao conectar com o servidor.', tipo: 'error' });
         }
     };
 
@@ -197,9 +223,9 @@ export default function AdminView({ onLogout }) {
             const res = await fetch(`${BASE_URL}/alunos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    usuario: userAluno, 
-                    nome: nomeAluno, 
+                body: JSON.stringify({
+                    usuario: userAluno,
+                    nome: nomeAluno,
                     senha: '123',
                     turma_id: turmaIdFinal
                 })
@@ -220,14 +246,14 @@ export default function AdminView({ onLogout }) {
 
     const cadastrarQuestaoAvulsa = async (e) => {
         e.preventDefault();
-        const opcoesMontadas = novaQuestao.tipo === 'objetiva' 
-            ? [novaQuestao.opcaoA, novaQuestao.opcaoB, novaQuestao.opcaoC, novaQuestao.opcaoD] 
+        const opcoesMontadas = novaQuestao.tipo === 'objetiva'
+            ? [novaQuestao.opcaoA, novaQuestao.opcaoB, novaQuestao.opcaoC, novaQuestao.opcaoD]
             : [];
 
         try {
             const res = await fetch(`${BASE_URL}/questoes/gerenciar`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -288,28 +314,72 @@ export default function AdminView({ onLogout }) {
             {abaAtiva === 'turmas' && (
                 <div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                        <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#2D3748' }}>🏫 Adicionar Nova Turma</h3>
-                            <form onSubmit={criarTurma} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* FORMULÁRIO DE CRIAR / EDITAR TURMA */}
+                        <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', borderTop: turmaEmEdicaoId ? '4px solid #DD6B20' : 'none' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h3 style={{ margin: 0, color: turmaEmEdicaoId ? '#DD6B20' : '#2D3748' }}>
+                                    {turmaEmEdicaoId ? '✏️ Editando Conteúdos da Turma' : '🏫 Adicionar Nova Turma'}
+                                </h3>
+                                {turmaEmEdicaoId && (
+                                    <button
+                                        type="button"
+                                        onClick={cancelarEdicao}
+                                        style={{ background: '#E2E8F0', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', color: '#4A5568' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                )}
+                            </div>
+
+                            <form onSubmit={salvarTurma} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nome da Turma:</label>
-                                    <input type="text" value={novaTurmaNome} onChange={(e) => setNovaTurmaNome(e.target.value)} placeholder="Ex: 8º Ano A" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }} required />
+                                    <input
+                                        type="text"
+                                        value={novaTurmaNome}
+                                        onChange={(e) => setNovaTurmaNome(e.target.value)}
+                                        placeholder="Ex: 8º Ano A"
+                                        style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }}
+                                        required
+                                    />
                                 </div>
+
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Ativar Assuntos no Motor Adaptativo:</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', background: '#F7FAFC', padding: '10px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                                        Selecionar Conteúdos Ativos na IA ({assuntosSelecionados.length} selecionados):
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', background: '#F7FAFC', padding: '10px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
                                         {listaAssuntos.map((assunto, i) => (
-                                            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                                <input type="checkbox" checked={assuntosSelecionados.includes(assunto)} onChange={() => handleCheckboxChange(assunto)} />
+                                            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.92rem' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={assuntosSelecionados.includes(assunto)}
+                                                    onChange={() => handleCheckboxChange(assunto)}
+                                                />
                                                 {assunto}
                                             </label>
                                         ))}
                                     </div>
                                 </div>
-                                <button type="submit" style={{ background: '#3182CE', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Turma no Banco</button>
+
+                                <button
+                                    type="submit"
+                                    style={{
+                                        background: turmaEmEdicaoId ? '#DD6B20' : '#3182CE',
+                                        color: '#FFF',
+                                        border: 'none',
+                                        padding: '12px',
+                                        borderRadius: '4px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {turmaEmEdicaoId ? '💾 Salvar Alterações da Turma' : 'Salvar Turma no Banco'}
+                                </button>
                             </form>
                         </div>
 
+                        {/* MATRÍCULA DE ALUNO */}
                         <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                             <h3 style={{ marginTop: 0, color: '#2D3748' }}>🎓 Matricular Estudante</h3>
                             <form onSubmit={cadastrarAluno} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -323,9 +393,9 @@ export default function AdminView({ onLogout }) {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Selecionar Turma Relacional:</label>
-                                    <select 
-                                        value={turmaSelecionada} 
-                                        onChange={(e) => setTurmaSelecionada(e.target.value)} 
+                                    <select
+                                        value={turmaSelecionada}
+                                        onChange={(e) => setTurmaSelecionada(e.target.value)}
                                         style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', background: '#fff' }}
                                         required
                                     >
@@ -338,6 +408,54 @@ export default function AdminView({ onLogout }) {
                             </form>
                         </div>
                     </div>
+
+                    {/* 🎯 LISTAGEM VISUAL DAS TURMAS COM BOTÃO DE EDIÇÃO */}
+                    <div style={{ marginTop: '2rem', background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                        <h3 style={{ marginTop: 0, color: '#2D3748' }}>🏫 Turmas Ativas no GeoMatrix</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                            {t_lista.map((t) => (
+                                <div key={t._id} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '15px', background: '#F7FAFC' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0, color: '#2D3748', fontSize: '1.1rem' }}>{t.nome}</h4>
+                                        <button
+                                            onClick={() => iniciarEdicaoTurma(t)}
+                                            style={{ background: '#EBF8FF', color: '#3182CE', border: '1px solid #BEE3F8', padding: '4px 10px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                                        >
+                                            ✏️ Editar Conteúdos
+                                        </button>
+                                    </div>
+                                    <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: '#718096' }}>
+                                        <strong>{t.assuntosAtivos?.length || 0}</strong> tópico(s) ativo(s) no simulador
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* TABELA GERAL DE MATRICULADOS */}
+                    <div style={{ marginTop: '2rem', background: '#FFF', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                        <h3 style={{ marginTop: 0, color: '#2D3748' }}>📋 Lista Geral de Alunos Matriculados</h3>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#EDF2F7', textAlign: 'left' }}>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Nome do Aluno</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Usuário</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Turma Vinculada</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid #CBD5E0' }}>Pontuação Acumulada</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {alunosLista.map((aluno) => (
+                                    <tr key={aluno._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                                        <td style={{ padding: '12px' }}>{aluno.nome}</td>
+                                        <td style={{ padding: '12px' }}>{aluno.usuario}</td>
+                                        <td style={{ padding: '12px' }}>{aluno.turma_id?.nome || 'Sem vínculo'}</td>
+                                        <td style={{ padding: '12px', fontWeight: 'bold', color: '#3182CE' }}>{aluno.pontuacao || 0} XP</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
@@ -346,44 +464,145 @@ export default function AdminView({ onLogout }) {
                 <div style={{ background: '#FFF', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                     <h3 style={{ marginTop: 0, color: '#2D3748' }}>🧠 Expandir Banco de Questões Dinâmicas</h3>
                     <form onSubmit={cadastrarQuestaoAvulsa} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+
+                        {/* Coluna Esquerda: Metadados da Questão */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ID Numérico único:</label>
-                                <input type="number" value={novaQuestao.id} onChange={(e) => setNovaQuestao({...novaQuestao, id: e.target.value})} placeholder="Ex: 101" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
+                                <input
+                                    type="number"
+                                    value={novaQuestao.id}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, id: e.target.value })}
+                                    placeholder="Ex: 101"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }}
+                                    required
+                                />
                             </div>
+
+                            {/* 🎯 CAMPO DE CATEGORIA (Padrão: Geometria) */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Categoria da Disciplina:</label>
+                                <input
+                                    type="text"
+                                    value={novaQuestao.categoria}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, categoria: e.target.value })}
+                                    placeholder="Ex: Geometria, Álgebra, Trigonometria..."
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }}
+                                    required
+                                />
+                            </div>
+
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Tópico do Currículo:</label>
-                                <input type="text" value={novaQuestao.assunto} onChange={(e) => setNovaQuestao({...novaQuestao, assunto: e.target.value})} placeholder="Ex: Teorema de Pitágoras" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
+                                <input
+                                    type="text"
+                                    value={novaQuestao.assunto}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, assunto: e.target.value })}
+                                    placeholder="Ex: Classificação de triângulos"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }}
+                                    required
+                                />
                             </div>
+
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Nível de Complexidade:</label>
-                                <select value={novaQuestao.dificuldade} onChange={(e) => setNovaQuestao({...novaQuestao, dificuldade: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }}>
-                                    <option>Fácil</option>
-                                    <option>Médio</option>
-                                    <option>Difícil</option>
+                                <select
+                                    value={novaQuestao.dificuldade}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, dificuldade: e.target.value })}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', background: '#fff' }}
+                                >
+                                    <option value="Fácil">Fácil</option>
+                                    <option value="Médio">Médio</option>
+                                    <option value="Difícil">Difícil</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Formato da Questão:</label>
+                                <select
+                                    value={novaQuestao.tipo}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, tipo: e.target.value })}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', background: '#fff' }}
+                                >
+                                    <option value="objetiva">Múltipla Escolha (Objetiva)</option>
+                                    <option value="discursiva">Desenvolvimento / Dissertativa</option>
                                 </select>
                             </div>
                         </div>
 
+                        {/* Coluna Direita: Conteúdo e Gabarito */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Enunciado Contextualizado:</label>
-                                <textarea rows="3" value={novaQuestao.enunciado} onChange={(e) => setNovaQuestao({...novaQuestao, enunciado: e.target.value})} placeholder="Escreva o problema..." style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', resize: 'none' }} required />
+                                <textarea
+                                    rows="3"
+                                    value={novaQuestao.enunciado}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, enunciado: e.target.value })}
+                                    placeholder="Escreva o problema matemático..."
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', resize: 'none', boxSizing: 'border-box' }}
+                                    required
+                                />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                <input type="text" value={novaQuestao.opcaoA} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoA: e.target.value})} placeholder="Opção A" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                <input type="text" value={novaQuestao.opcaoB} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoB: e.target.value})} placeholder="Opção B" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                <input type="text" value={novaQuestao.opcaoC} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoC: e.target.value})} placeholder="Opção C" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                                <input type="text" value={novaQuestao.opcaoD} onChange={(e) => setNovaQuestao({...novaQuestao, opcaoD: e.target.value})} placeholder="Opção D" style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }} required />
-                            </div>
+                            {novaQuestao.tipo === 'objetiva' ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={novaQuestao.opcaoA}
+                                        onChange={(e) => setNovaQuestao({ ...novaQuestao, opcaoA: e.target.value })}
+                                        placeholder="Opção A"
+                                        style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        value={novaQuestao.opcaoB}
+                                        onChange={(e) => setNovaQuestao({ ...novaQuestao, opcaoB: e.target.value })}
+                                        placeholder="Opção B"
+                                        style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        value={novaQuestao.opcaoC}
+                                        onChange={(e) => setNovaQuestao({ ...novaQuestao, opcaoC: e.target.value })}
+                                        placeholder="Opção C"
+                                        style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        value={novaQuestao.opcaoD}
+                                        onChange={(e) => setNovaQuestao({ ...novaQuestao, opcaoD: e.target.value })}
+                                        placeholder="Opção D"
+                                        style={{ padding: '8px', border: '1px solid #CBD5E0', borderRadius: '4px' }}
+                                        required
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ background: '#F7FAFC', border: '1px dashed #CBD5E0', borderRadius: '6px', padding: '12px', color: '#718096', fontSize: '0.9rem' }}>
+                                    ℹ️ <strong>Questão Dissertativa:</strong> O aluno responderá diretamente no simulador com desenvolvimento/valor numérico.
+                                </div>
+                            )}
 
                             <div>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Gabarito:</label>
-                                <input type="text" value={novaQuestao.gabarito} onChange={(e) => setNovaQuestao({...novaQuestao, gabarito: e.target.value})} placeholder="Opção correta (1 para A, etc)" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0' }} required />
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Gabarito / Solução Oficial:</label>
+                                <input
+                                    type="text"
+                                    value={novaQuestao.gabarito}
+                                    onChange={(e) => setNovaQuestao({ ...novaQuestao, gabarito: e.target.value })}
+                                    placeholder={novaQuestao.tipo === 'objetiva' ? "Digite o número da opção (ex: 1 para A)" : "Digite a resposta exata/numérica esperada"}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #CBD5E0', boxSizing: 'border-box' }}
+                                    required
+                                />
                             </div>
 
-                            <button type="submit" style={{ background: '#2B6CB0', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}>Inserir Questão</button>
+                            <button
+                                type="submit"
+                                style={{ background: '#2B6CB0', color: '#FFF', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}
+                            >
+                                Inserir Questão
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -394,8 +613,8 @@ export default function AdminView({ onLogout }) {
                 <div>
                     <div style={{ background: '#FFF', padding: '15px 20px', borderRadius: '8px', marginBottom: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <label style={{ fontWeight: 'bold', color: '#2D3748' }}>Selecione a Turma para Análise:</label>
-                        <select 
-                            value={turmaRelatorioId} 
+                        <select
+                            value={turmaRelatorioId}
                             onChange={(e) => {
                                 setTurmaRelatorioId(e.target.value);
                                 buscarRelatorioTurma(e.target.value);
@@ -414,7 +633,6 @@ export default function AdminView({ onLogout }) {
                         </div>
                     ) : (
                         <div>
-                            {/* Cards de Métricas Consolidadas */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
                                 <div style={{ background: '#FFF', padding: '20px', borderRadius: '8px', borderLeft: '5px solid #3182CE', boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}>
                                     <h4 style={{ margin: 0, color: '#718096', fontSize: '0.95rem' }}>Estudantes Matriculados</h4>
@@ -438,7 +656,6 @@ export default function AdminView({ onLogout }) {
                                 </div>
                             </div>
 
-                            {/* Tabela de Desempenho dos Alunos (Linhas Clicáveis) */}
                             <div style={{ background: '#FFF', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                     <h3 style={{ margin: 0, color: '#2D3748' }}>👥 Desempenho Individual — {dadosRelatorio?.turmaNome || 'Turma'}</h3>
@@ -458,11 +675,11 @@ export default function AdminView({ onLogout }) {
                                         </thead>
                                         <tbody>
                                             {dadosRelatorio.alunos.map((a) => (
-                                                <tr 
-                                                    key={a._id} 
+                                                <tr
+                                                    key={a._id}
                                                     onClick={() => abrirDiagnosticoAluno(a._id)}
-                                                    style={{ 
-                                                        borderBottom: '1px solid #E2E8F0', 
+                                                    style={{
+                                                        borderBottom: '1px solid #E2E8F0',
                                                         fontSize: '0.95rem',
                                                         cursor: 'pointer',
                                                         transition: 'background-color 0.15s ease'
@@ -499,7 +716,7 @@ export default function AdminView({ onLogout }) {
                 </div>
             )}
 
-            {/* 🎯 MODAL DE DIAGNÓSTICO INDIVIDUAL DO ALUNO */}
+            {/* MODAL DE DIAGNÓSTICO INDIVIDUAL DO ALUNO */}
             {(alunoSelecionadoDetalhe || carregandoDetalheAluno) && (
                 <div style={{
                     position: 'fixed',
@@ -526,7 +743,7 @@ export default function AdminView({ onLogout }) {
                         boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
                         position: 'relative'
                     }}>
-                        <button 
+                        <button
                             onClick={() => setAlunoSelecionadoDetalhe(null)}
                             style={{
                                 position: 'absolute',

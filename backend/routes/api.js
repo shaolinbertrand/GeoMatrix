@@ -37,6 +37,8 @@ router.get('/proxima', autenticarToken, questoesController.obterProximaQuestaoAd
 
 // Rota para submeter, corrigir e computar a pontuação adaptativa
 router.post('/submeter', autenticarToken, questoesController.submeterRespostaQuestao);
+//Rota para pegar o Dashboard do aluno
+router.get('/alunos/dashboard', autenticarToken, alunoController.obterDashboardAluno);
 router.get('/alunos/:alunoId/dashboard', autenticarToken, alunoController.obterDashboardAluno);
 
 
@@ -47,7 +49,7 @@ router.post('/turmas', autenticarToken, turmaController.criarTurma);
 // Rota para listar as turmas no <select> do React
 router.get('/turmas', autenticarToken, turmaController.listarTurmas);
 
-//Rota para o professor pegar o leatorio da turma
+//Rota para o professor pegar o relatorio da turma
 router.get('/turmas/:turmaId/relatorio', autenticarToken, turmaController.obterRelatorioTurma);
 // Rota para o professor vincular um aluno a uma turma específica
 router.put('/alunos/vincular-turma', autenticarToken, alunoController.vincularAlunoATurma);
@@ -56,5 +58,6 @@ router.put('/alunos/vincular-turma', autenticarToken, alunoController.vincularAl
 router.post('/questoes/gerenciar', autenticarToken, professorController.gerenciarBancoQuestoes);
 // Rota para listar todos os assuntos únicos que possuem questões cadastradas
 router.get('/questoes/assuntos', autenticarToken, professorController.listarAssuntosDisponiveis);
-
+//Rota para atualizar os conteudos vinculados a uma turma
+router.put('/turmas/:id', autenticarToken, turmaController.atualizarTurma);
 module.exports = router;
